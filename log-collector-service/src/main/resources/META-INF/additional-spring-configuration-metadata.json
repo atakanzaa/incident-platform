@@ -1,0 +1,17 @@
+{"properties": [
+  {
+    "name": "management.metrics.prometheus.metrics.export.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'management.metrics.prometheus.metrics.export.enabled'"
+  },
+  {
+    "name": "kafka.topics.logs-scored",
+    "type": "java.lang.String",
+    "description": "A description for 'kafka.topics.logs-scored'"
+  },
+  {
+    "name": "kafka.topics.logs-raw",
+    "type": "java.lang.String",
+    "description": "A description for 'kafka.topics.logs-raw'"
+  }
+]}

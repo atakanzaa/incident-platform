@@ -1,0 +1,67 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: anomaly-detector-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: anomaly-detector-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: "logEvent:com.incident.anomaly_detector_service.model.LogEvent"
+      enable-auto-commit: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+kafka:
+  topics:
+    logs-raw: logs.raw
+    logs-scored: logs.scored
+    alerts-critical: alerts.critical
+    alerts-info: alerts.info
+
+ai:
+  service:
+    url: ${AI_SERVICE_URL:http://localhost:8000}
+    endpoint: /api/anomaly/detect
+    timeout: 5000
+    retries: 3
+
+anomaly:
+  detection:
+    threshold: 0.8
+    window-size: 100
+    batch-size: 50
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.incident.anomaly_detector_service: DEBUG
+    org.apache.kafka: INFO 

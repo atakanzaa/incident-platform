@@ -1,0 +1,154 @@
+# Staging environment overrides
+global:
+  imageRegistry: "your-registry.com"
+  imageRepository: "incident-platform"
+  imageTag: "develop-latest"
+  imagePullPolicy: Always
+
+environment: "staging"
+
+# Reduced replica counts for staging
+services:
+  config-server:
+    replicas: 1
+  discovery-server:
+    replicas: 1
+  gateway-service:
+    replicas: 1
+    ingress:
+      hosts:
+        - host: incident-platform-staging.your-domain.com
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: incident-platform-staging-tls
+          hosts:
+            - incident-platform-staging.your-domain.com
+  auth-service:
+    replicas: 1
+  log-collector-service:
+    replicas: 1
+  anomaly-detector-service:
+    replicas: 1
+  alert-manager-service:
+    replicas: 1
+  notification-service:
+    replicas: 1
+  auto-responder-service:
+    replicas: 1
+    # Dry run mode for staging
+    env:
+      DRY_RUN: "true"
+  incident-tracker:
+    replicas: 1
+  dashboard-service:
+    replicas: 1
+  ai-service:
+    replicas: 1
+
+# Reduced infrastructure resources for staging
+postgresql:
+  primary:
+    persistence:
+      size: 5Gi
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "250m"
+
+mongodb:
+  persistence:
+    size: 5Gi
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+kafka:
+  replicaCount: 1
+  persistence:
+    size: 4Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  zookeeper:
+    replicaCount: 1
+    persistence:
+      size: 2Gi
+
+rabbitmq:
+  persistence:
+    size: 2Gi
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+redis:
+  master:
+    persistence:
+      size: 2Gi
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "250m"
+
+# Disable autoscaling in staging
+autoscaling:
+  enabled: false
+
+# Monitoring (optional in staging)
+prometheus:
+  enabled: true
+  server:
+    persistentVolume:
+      size: 5Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+grafana:
+  enabled: true
+  persistence:
+    size: 1Gi
+  ingress:
+    hosts:
+      - grafana-staging.your-domain.com
+    tls:
+      - secretName: grafana-staging-tls
+        hosts:
+          - grafana-staging.your-domain.com
+
+# Security (reduced for staging)
+podSecurityPolicy:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+# Backup configuration (reduced retention)
+backup:
+  enabled: true
+  schedule: "0 3 * * *"
+  retention: "3d" 

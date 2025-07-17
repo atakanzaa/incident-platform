@@ -1,0 +1,88 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: auto-responder-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        retry:
+          enabled: true
+          initial-interval: 2000
+          max-attempts: 5
+          max-interval: 10000
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+rabbitmq:
+  queues:
+    auto-actions: auto-actions
+
+kubernetes:
+  config:
+    in-cluster: ${K8S_IN_CLUSTER:false}
+    config-path: ${K8S_CONFIG_PATH:~/.kube/config}
+    namespace: ${K8S_NAMESPACE:default}
+  client:
+    timeout: 30000
+    connection-timeout: 5000
+
+auto-response:
+  enabled: ${AUTO_RESPONSE_ENABLED:true}
+  dry-run: ${AUTO_RESPONSE_DRY_RUN:true}  # Set to false in production
+  actions:
+    pod-restart:
+      enabled: true
+      max-restarts-per-hour: 3
+      cooldown-minutes: 15
+    service-scale:
+      enabled: true
+      max-scale-factor: 3
+      min-replicas: 1
+      max-replicas: 10
+      cooldown-minutes: 10
+    circuit-breaker:
+      enabled: false
+      threshold-minutes: 5
+  rules:
+    critical-threshold: 0.9
+    high-threshold: 0.7
+    service-patterns:
+      - "order-service.*"
+      - "payment-service.*"
+      - "user-service.*"
+    excluded-services:
+      - "database"
+      - "redis"
+      - "elasticsearch"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.incident.auto_responder_service: DEBUG
+    org.springframework.amqp: INFO
+    io.kubernetes.client: INFO 

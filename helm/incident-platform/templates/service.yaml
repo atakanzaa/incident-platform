@@ -1,0 +1,39 @@
+{{- range $serviceName, $serviceConfig := .Values.services }}
+{{- if $serviceConfig.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $serviceConfig.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $serviceConfig.name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ $serviceConfig.port | quote }}
+    {{- if eq $serviceName "ai-service" }}
+    prometheus.io/path: "/metrics"
+    {{- else }}
+    prometheus.io/path: "/actuator/prometheus"
+    {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ $serviceConfig.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  {{- if eq $serviceName "ai-service" }}
+  - port: 8001
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  {{- end }}
+  selector:
+    app: {{ $serviceConfig.name }}
+    release: {{ $.Release.Name }}
+{{- end }}
+{{- end }} 

@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: incident-platform-prod
+  namespace: argocd
+  labels:
+    app: incident-platform
+    env: production
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/atakanzaa/incident-platform-config.git
+    targetRevision: HEAD
+    path: environments/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: incident-platform-prod
+  syncPolicy:
+    # Manual sync for production - requires approval
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  revisionHistoryLimit: 20
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: ""
+      kind: Service
+      jsonPointers:
+        - /spec/clusterIP
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+      jsonPointers:
+        - /spec/replicas
+        - /status
+  info:
+    - name: Description
+      value: "Incident Platform Production Environment"
+    - name: Repository
+      value: "https://github.com/atakanzaa/incident-platform-config.git"
+    - name: Contact
+      value: "atakanzaa@users.noreply.github.com" 

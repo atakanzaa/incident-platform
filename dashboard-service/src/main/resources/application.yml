@@ -1,0 +1,70 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: dashboard-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: dashboard-group
+      auto-offset-reset: latest  # Only get new messages for real-time dashboard
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: "alert:com.incident.dashboard_service.model.Alert"
+      enable-auto-commit: true  # Auto-commit for dashboard - we don't want to replay
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+kafka:
+  topics:
+    alerts-critical: alerts.critical
+    alerts-info: alerts.info
+
+websocket:
+  allowed-origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+    - "http://localhost:8080"
+  endpoint: "/ws"
+  topics:
+    alerts: "/topic/alerts"
+    metrics: "/topic/metrics"
+    status: "/topic/status"
+
+dashboard:
+  cache:
+    alert-history-size: 1000
+    metrics-window-minutes: 60
+    refresh-interval-seconds: 30
+  real-time:
+    max-connections: 1000
+    heartbeat-interval: 25000
+    disconnect-delay: 60000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    prometheus:
+      metrics:
+        export:
+          enabled: true
+
+logging:
+  level:
+    com.incident.dashboard_service: DEBUG
+    org.springframework.messaging: INFO
+    org.apache.kafka: INFO 

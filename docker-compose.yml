@@ -1,0 +1,397 @@
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - incident-platform
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    networks:
+      - incident-platform
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    hostname: rabbitmq
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - incident-platform
+
+  postgresql:
+    image: postgres:15-alpine
+    hostname: postgresql
+    container_name: postgresql
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: incident_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - incident-platform
+
+  mongodb:
+    image: mongo:7.0
+    hostname: mongodb
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: incident_tracker
+    volumes:
+      - mongo_data:/data/db
+      - ./init-scripts/mongo-init.js:/docker-entrypoint-initdb.d/init.js
+    networks:
+      - incident-platform
+
+  redis:
+    image: redis:7.2-alpine
+    hostname: redis
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - incident-platform
+
+  # AI Service
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    hostname: ai-service
+    container_name: ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./ai-service:/app
+      - ai_models:/app/models
+    networks:
+      - incident-platform
+
+  # Core Platform Services
+  config-server:
+    build:
+      context: ./config-server
+      dockerfile: Dockerfile
+    hostname: config-server
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+    networks:
+      - incident-platform
+
+  discovery-server:
+    build:
+      context: ./discovery-server
+      dockerfile: Dockerfile
+    hostname: discovery-server
+    container_name: discovery-server
+    depends_on:
+      - config-server
+    ports:
+      - "8761:8761"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - CONFIG_SERVER_URL=http://config-server:8888
+    networks:
+      - incident-platform
+
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    hostname: gateway-service
+    container_name: gateway-service
+    depends_on:
+      - config-server
+      - discovery-server
+    ports:
+      - "8080:8080"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - CONFIG_SERVER_URL=http://config-server:8888
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+    networks:
+      - incident-platform
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    hostname: auth-service
+    container_name: auth-service
+    depends_on:
+      - postgresql
+      - discovery-server
+    ports:
+      - "8081:8081"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgresql:5432/incident_platform
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres123
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+    networks:
+      - incident-platform
+
+  log-collector-service:
+    build:
+      context: ./log-collector-service
+      dockerfile: Dockerfile
+    hostname: log-collector-service
+    container_name: log-collector-service
+    depends_on:
+      - kafka
+      - discovery-server
+    ports:
+      - "8082:8082"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+    networks:
+      - incident-platform
+
+  anomaly-detector-service:
+    build:
+      context: ./anomaly-detector-service
+      dockerfile: Dockerfile
+    hostname: anomaly-detector-service
+    container_name: anomaly-detector-service
+    depends_on:
+      - kafka
+      - ai-service
+      - discovery-server
+    ports:
+      - "8083:8083"
+    environment:
+      - JAVA_OPTS=-Xmx768m
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - AI_SERVICE_URL=http://ai-service:8000
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+    networks:
+      - incident-platform
+
+  alert-manager-service:
+    build:
+      context: ./alert-manager-service
+      dockerfile: Dockerfile
+    hostname: alert-manager-service
+    container_name: alert-manager-service
+    depends_on:
+      - kafka
+      - rabbitmq
+      - discovery-server
+    ports:
+      - "8084:8084"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=admin123
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+    networks:
+      - incident-platform
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    hostname: notification-service
+    container_name: notification-service
+    depends_on:
+      - rabbitmq
+      - discovery-server
+    ports:
+      - "8085:8085"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=admin123
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+      - SPRING_MAIL_HOST=smtp.gmail.com
+      - SPRING_MAIL_PORT=587
+      - SPRING_MAIL_USERNAME=${SMTP_USERNAME:-your-email@gmail.com}
+      - SPRING_MAIL_PASSWORD=${SMTP_PASSWORD:-your-app-password}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/YOUR/WEBHOOK/URL}
+    networks:
+      - incident-platform
+
+  auto-responder-service:
+    build:
+      context: ./auto-responder-service
+      dockerfile: Dockerfile
+    hostname: auto-responder-service
+    container_name: auto-responder-service
+    depends_on:
+      - rabbitmq
+      - discovery-server
+    ports:
+      - "8086:8086"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=admin123
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # For Docker-in-Docker if needed
+      - ~/.kube/config:/root/.kube/config:ro        # Kubernetes config
+    networks:
+      - incident-platform
+
+  incident-tracker:
+    build:
+      context: ./incident-tracker
+      dockerfile: Dockerfile
+    hostname: incident-tracker
+    container_name: incident-tracker
+    depends_on:
+      - mongodb
+      - kafka
+      - discovery-server
+    ports:
+      - "8087:8087"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DATABASE=incident_tracker
+      - MONGODB_USERNAME=admin
+      - MONGODB_PASSWORD=admin123
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+    networks:
+      - incident-platform
+
+  dashboard-service:
+    build:
+      context: ./dashboard-service
+      dockerfile: Dockerfile
+    hostname: dashboard-service
+    container_name: dashboard-service
+    depends_on:
+      - kafka
+      - discovery-server
+    ports:
+      - "8088:8088"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+    networks:
+      - incident-platform
+
+  # Monitoring and Management
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    hostname: kafka-ui
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - incident-platform
+
+  prometheus:
+    image: prom/prometheus:latest
+    hostname: prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - incident-platform
+
+  grafana:
+    image: grafana/grafana:latest
+    hostname: grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - incident-platform
+
+volumes:
+  postgres_data:
+  mongo_data:
+  rabbitmq_data:
+  redis_data:
+  ai_models:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  incident-platform:
+    driver: bridge 

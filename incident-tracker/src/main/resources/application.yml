@@ -1,0 +1,69 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: incident-tracker-service
+  data:
+    mongodb:
+      host: ${MONGODB_HOST:localhost}
+      port: ${MONGODB_PORT:27017}
+      database: ${MONGODB_DATABASE:incident_tracker}
+      username: ${MONGODB_USERNAME:}
+      password: ${MONGODB_PASSWORD:}
+      authentication-database: ${MONGODB_AUTH_DB:admin}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: incident-tracker-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: "alert:com.incident.incident_tracker.model.Alert"
+      enable-auto-commit: false
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+kafka:
+  topics:
+    alerts-critical: alerts.critical
+    alerts-info: alerts.info
+
+incident:
+  retention:
+    days: 90  # Keep incidents for 90 days
+    cleanup-interval: 24  # Cleanup every 24 hours
+  indexing:
+    enable-text-search: true
+    max-search-results: 1000
+  aggregation:
+    enable-metrics: true
+    window-minutes: 15  # Aggregate metrics every 15 minutes
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        metrics:
+          export:
+            enabled: true
+
+logging:
+  level:
+    com.incident.incident_tracker: DEBUG
+    org.springframework.data.mongodb: INFO
+    org.apache.kafka: INFO 

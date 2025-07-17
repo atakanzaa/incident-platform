@@ -1,0 +1,196 @@
+{{- range $serviceName, $serviceConfig := .Values.services }}
+{{- if $serviceConfig.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $serviceConfig.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $serviceConfig.name }}
+    version: {{ $.Values.global.imageTag | quote }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+spec:
+  {{- if not $.Values.autoscaling.enabled }}
+  replicas: {{ $serviceConfig.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ $serviceConfig.name }}
+      release: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $serviceConfig.name }}
+        version: {{ $.Values.global.imageTag | quote }}
+        release: {{ $.Release.Name }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $serviceConfig.port | quote }}
+        prometheus.io/path: "/actuator/prometheus"
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+    spec:
+      {{- if $.Values.serviceAccount.create }}
+      serviceAccountName: {{ $.Release.Name }}-serviceaccount
+      {{- end }}
+      securityContext:
+        {{- toYaml $.Values.securityContext | nindent 8 }}
+      containers:
+      - name: {{ $serviceConfig.name }}
+        image: "{{ $.Values.global.imageRegistry }}/{{ $.Values.global.imageRepository }}/{{ $serviceConfig.name }}:{{ $.Values.global.imageTag }}"
+        imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ $serviceConfig.port }}
+          protocol: TCP
+        {{- if eq $serviceName "ai-service" }}
+        - name: metrics
+          containerPort: 8001
+          protocol: TCP
+        {{- else }}
+        - name: management
+          containerPort: {{ $serviceConfig.port }}
+          protocol: TCP
+        {{- end }}
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "kubernetes"
+        - name: JAVA_OPTS
+          value: "-Xmx{{ (($serviceConfig.resources.limits.memory | trimSuffix "i" | trimSuffix "M" | trimSuffix "G") | int) | mul 0.8 }}m -XX:+UseG1GC -XX:+UseContainerSupport"
+        {{- if ne $serviceName "config-server" }}
+        - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+          value: "http://config-server:8888/eureka/"
+        {{- end }}
+        {{- if or (eq $serviceName "auth-service") }}
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://{{ $.Release.Name }}-postgresql:5432/incident_platform"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "postgres"
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Release.Name }}-postgresql
+              key: postgres-password
+        {{- end }}
+        {{- if or (eq $serviceName "incident-tracker") }}
+        - name: MONGODB_HOST
+          value: "{{ $.Release.Name }}-mongodb"
+        - name: MONGODB_PORT
+          value: "27017"
+        - name: MONGODB_DATABASE
+          value: "incident_tracker"
+        - name: MONGODB_USERNAME
+          value: "root"
+        - name: MONGODB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Release.Name }}-mongodb
+              key: mongodb-root-password
+        {{- end }}
+        {{- if or (eq $serviceName "log-collector-service") (eq $serviceName "anomaly-detector-service") (eq $serviceName "dashboard-service") (eq $serviceName "incident-tracker") }}
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "{{ $.Release.Name }}-kafka:9092"
+        {{- end }}
+        {{- if or (eq $serviceName "alert-manager-service") (eq $serviceName "notification-service") (eq $serviceName "auto-responder-service") }}
+        - name: RABBITMQ_HOST
+          value: "{{ $.Release.Name }}-rabbitmq"
+        - name: RABBITMQ_USERNAME
+          value: "admin"
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Release.Name }}-rabbitmq
+              key: rabbitmq-password
+        {{- end }}
+        {{- if eq $serviceName "anomaly-detector-service" }}
+        - name: AI_SERVICE_URL
+          value: "http://ai-service:8000"
+        {{- end }}
+        {{- if eq $serviceName "dashboard-service" }}
+        - name: REDIS_HOST
+          value: "{{ $.Release.Name }}-redis-master"
+        - name: REDIS_PORT
+          value: "6379"
+        {{- end }}
+        {{- if eq $serviceName "notification-service" }}
+        - name: SPRING_MAIL_HOST
+          value: "smtp.gmail.com"
+        - name: SPRING_MAIL_PORT
+          value: "587"
+        - name: SPRING_MAIL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: notification-credentials
+              key: email-username
+              optional: true
+        - name: SPRING_MAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: notification-credentials
+              key: email-password
+              optional: true
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: notification-credentials
+              key: slack-webhook-url
+              optional: true
+        {{- end }}
+        livenessProbe:
+          {{- if eq $serviceName "ai-service" }}
+          httpGet:
+            path: /health
+            port: http
+          {{- else }}
+          httpGet:
+            path: /actuator/health
+            port: http
+          {{- end }}
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          {{- if eq $serviceName "ai-service" }}
+          httpGet:
+            path: /health
+            port: http
+          {{- else }}
+          httpGet:
+            path: /actuator/health
+            port: http
+          {{- end }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          {{- toYaml $serviceConfig.resources | nindent 10 }}
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        {{- if eq $serviceName "auto-responder-service" }}
+        - name: kubeconfig
+          mountPath: /root/.kube
+          readOnly: true
+        {{- end }}
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ $.Release.Name }}-config
+      {{- if eq $serviceName "auto-responder-service" }}
+      - name: kubeconfig
+        secret:
+          secretName: kubeconfig-secret
+          optional: true
+      {{- end }}
+      restartPolicy: Always
+      {{- if $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml $.Values.global.imagePullSecrets | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }} 

@@ -1,0 +1,89 @@
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.logs
+target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Spring Boot
+spring-boot*.log
+*.pid
+
+# IDE
+.idea/
+*.iml
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Node modules (if any)
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+
+# Docker
+.docker/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+
+# Local environment
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+
+# Secrets
+secrets/
+*.key
+*.pem
+*.crt
+
+# Build artifacts
+dist/
+build/
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Gradle
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+
+# Test reports
+test-output/
+coverage/
+
+# Local configuration
+local.properties
+application-local.yml
+application-local.yaml 

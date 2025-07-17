@@ -1,0 +1,315 @@
+# Local development environment configuration
+global:
+  imageRegistry: "localhost:5000"  # Local Docker registry
+  imageRepository: "incident-platform"
+  imageTag: "latest"
+  imagePullPolicy: Always
+
+environment: "local"
+
+# Minimal replicas for local development
+services:
+  config-server:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  
+  discovery-server:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  
+  gateway-service:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    # NodePort için service type override
+    service:
+      type: NodePort
+      nodePort: 30080
+    # Ingress'i devre dışı bırak
+    ingress:
+      enabled: false
+  
+  auth-service:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  
+  log-collector-service:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  
+  anomaly-detector-service:
+    replicas: 1
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+  
+  alert-manager-service:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  
+  notification-service:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  
+  auto-responder-service:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    env:
+      DRY_RUN: "true"  # Local'de gerçek işlem yapmasın
+  
+  incident-tracker:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  
+  dashboard-service:
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    service:
+      type: NodePort
+      nodePort: 30088
+  
+  ai-service:
+    replicas: 1
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+# Minimal infrastructure for local development
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "postgres123"
+    database: "incident_platform"
+  primary:
+    persistence:
+      enabled: false  # Local'de persistence yok
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "250m"
+    service:
+      type: NodePort
+      nodePorts:
+        postgresql: 30432
+
+mongodb:
+  enabled: true
+  auth:
+    enabled: false  # Local'de auth yok
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+  service:
+    type: NodePort
+    nodePorts:
+      mongodb: 30017
+
+kafka:
+  enabled: true
+  replicaCount: 1
+  auth:
+    clientProtocol: plaintext
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  service:
+    type: NodePort
+    nodePorts:
+      client: 30092
+  zookeeper:
+    enabled: true
+    replicaCount: 1
+    persistence:
+      enabled: false
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+rabbitmq:
+  enabled: true
+  auth:
+    username: "admin"
+    password: "admin123"
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  service:
+    type: NodePort
+    nodePorts:
+      amqp: 30672
+      manager: 30673
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+    service:
+      type: NodePort
+      nodePorts:
+        redis: 30379
+
+# Monitoring (isteğe bağlı local'de)
+prometheus:
+  enabled: true
+  server:
+    persistentVolume:
+      enabled: false
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    service:
+      type: NodePort
+      nodePort: 30090
+
+grafana:
+  enabled: true
+  persistence:
+    enabled: false
+  adminPassword: "admin123"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  service:
+    type: NodePort
+    nodePort: 30300
+
+# Local için güvenlik devre dışı
+podSecurityPolicy:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+# Autoscaling devre dışı
+autoscaling:
+  enabled: false
+
+# Backup devre dışı (local)
+backup:
+  enabled: false
+
+# Local development için ek konfigürasyon
+localDevelopment:
+  enabled: true
+  # NodePort aralıkları
+  nodePorts:
+    gateway: 30080
+    dashboard: 30088
+    prometheus: 30090
+    grafana: 30300
+    postgresql: 30432
+    mongodb: 30017
+    kafka: 30092
+    rabbitmq-amqp: 30672
+    rabbitmq-mgmt: 30673
+    redis: 30379 

@@ -1,0 +1,85 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: alert-manager-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: alert-manager-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: "scoredLogEvent:com.incident.alert_manager_service.model.ScoredLogEvent"
+      enable-auto-commit: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+kafka:
+  topics:
+    logs-scored: logs.scored
+    alerts-critical: alerts.critical
+    alerts-info: alerts.info
+
+rabbitmq:
+  exchanges:
+    alert-exchange: incident.alerts
+  queues:
+    notifications: notifications
+    auto-actions: auto-actions
+    critical-alerts: critical-alerts
+  routing-keys:
+    notification: notification
+    auto-action: auto-action
+    critical: critical
+
+alert:
+  thresholds:
+    critical: 0.9
+    high: 0.7
+    medium: 0.5
+    low: 0.3
+  rules:
+    suppress-duplicate-window: 300 # 5 minutes in seconds
+    escalation-timeout: 1800 # 30 minutes
+    max-alerts-per-service: 10
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.incident.alert_manager_service: DEBUG
+    org.apache.kafka: INFO
+    org.springframework.amqp: INFO 

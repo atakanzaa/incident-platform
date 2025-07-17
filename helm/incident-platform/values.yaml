@@ -1,0 +1,369 @@
+# Global configuration
+global:
+  imageRegistry: "your-registry.com"
+  imageRepository: "incident-platform"
+  imageTag: "latest"
+  imagePullPolicy: IfNotPresent
+  storageClass: "gp2"
+  
+# Service configurations
+services:
+  config-server:
+    enabled: true
+    name: config-server
+    port: 8888
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    
+  discovery-server:
+    enabled: true
+    name: discovery-server
+    port: 8761
+    replicas: 1
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    
+  gateway-service:
+    enabled: true
+    name: gateway-service
+    port: 8080
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    ingress:
+      enabled: true
+      className: "nginx"
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/rate-limit: "100"
+      hosts:
+        - host: incident-platform.your-domain.com
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: incident-platform-tls
+          hosts:
+            - incident-platform.your-domain.com
+    
+  auth-service:
+    enabled: true
+    name: auth-service
+    port: 8081
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    
+  log-collector-service:
+    enabled: true
+    name: log-collector-service
+    port: 8082
+    replicas: 3
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    
+  anomaly-detector-service:
+    enabled: true
+    name: anomaly-detector-service
+    port: 8083
+    replicas: 2
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+    
+  alert-manager-service:
+    enabled: true
+    name: alert-manager-service
+    port: 8084
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    
+  notification-service:
+    enabled: true
+    name: notification-service
+    port: 8085
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    
+  auto-responder-service:
+    enabled: true
+    name: auto-responder-service
+    port: 8086
+    replicas: 1
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    
+  incident-tracker:
+    enabled: true
+    name: incident-tracker
+    port: 8087
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    
+  dashboard-service:
+    enabled: true
+    name: dashboard-service
+    port: 8088
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    
+  ai-service:
+    enabled: true
+    name: ai-service
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+
+# Infrastructure dependencies
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "postgres123"
+    database: "incident_platform"
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+mongodb:
+  enabled: true
+  auth:
+    enabled: true
+    rootPassword: "admin123"
+    databases:
+      - "incident_tracker"
+  persistence:
+    enabled: true
+    size: 20Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+kafka:
+  enabled: true
+  replicaCount: 3
+  auth:
+    clientProtocol: plaintext
+  listeners:
+    client:
+      protocol: PLAINTEXT
+  persistence:
+    enabled: true
+    size: 8Gi
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  zookeeper:
+    enabled: true
+    replicaCount: 3
+    persistence:
+      enabled: true
+      size: 8Gi
+
+rabbitmq:
+  enabled: true
+  auth:
+    username: "admin"
+    password: "admin123"
+  persistence:
+    enabled: true
+    size: 8Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+# Monitoring stack
+prometheus:
+  enabled: true
+  server:
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+
+grafana:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 1Gi
+  adminPassword: "admin123"
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.your-domain.com
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - grafana.your-domain.com
+
+# Autoscaling configuration
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Security
+podSecurityPolicy:
+  enabled: true
+
+networkPolicy:
+  enabled: true
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Environment-specific overrides
+environment: "staging"
+
+# ConfigMaps and Secrets
+configMaps:
+  application-config:
+    data:
+      spring.profiles.active: "kubernetes"
+      logging.level.com.incident: "INFO"
+      management.endpoints.web.exposure.include: "health,info,metrics,prometheus"
+
+secrets:
+  database-credentials:
+    type: Opaque
+    data: {}
+  
+  messaging-credentials:
+    type: Opaque
+    data: {}
+  
+  notification-credentials:
+    type: Opaque
+    data: {}
+
+# Service Mesh (if using Istio)
+serviceMesh:
+  enabled: false
+  
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention: "7d" 

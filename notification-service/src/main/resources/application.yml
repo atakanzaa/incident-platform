@@ -1,0 +1,107 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: notification-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 5000
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          ssl:
+            trust: "*"
+    test-connection: false
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+rabbitmq:
+  queues:
+    notifications: notifications
+    critical-alerts: critical-alerts
+
+notification:
+  channels:
+    email:
+      enabled: ${EMAIL_ENABLED:true}
+      from: ${EMAIL_FROM:noreply@incident-platform.com}
+      to-addresses: ${EMAIL_TO_ADDRESSES:admin@incident-platform.com}
+    slack:
+      enabled: ${SLACK_ENABLED:false}
+      webhook-url: ${SLACK_WEBHOOK_URL:}
+      channel: ${SLACK_CHANNEL:#alerts}
+    sms:
+      enabled: ${SMS_ENABLED:false}
+      provider: ${SMS_PROVIDER:twilio}
+      account-sid: ${TWILIO_ACCOUNT_SID:}
+      auth-token: ${TWILIO_AUTH_TOKEN:}
+      from-number: ${TWILIO_FROM_NUMBER:}
+      to-numbers: ${SMS_TO_NUMBERS:}
+    webhook:
+      enabled: ${WEBHOOK_ENABLED:false}
+      url: ${WEBHOOK_URL:}
+  templates:
+    subject: "[{{ severity }}] Alert: {{ title }}"
+    email-body: |
+      Alert Details:
+      - ID: {{ alertId }}
+      - Service: {{ serviceName }}
+      - Severity: {{ severity }}
+      - Description: {{ description }}
+      - Anomaly Score: {{ anomalyScore }}
+      - Time: {{ createdAt }}
+      
+      Additional Information:
+      {{ metadata }}
+    slack-message: |
+      🚨 *{{ severity }} Alert*
+      *Service:* {{ serviceName }}
+      *Description:* {{ description }}
+      *Score:* {{ anomalyScore }}
+      *Time:* {{ createdAt }}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        metrics:
+          export:
+            enabled: true
+
+logging:
+  level:
+    com.incident.notification_service: DEBUG
+    org.springframework.amqp: INFO
+    org.springframework.mail: DEBUG 

@@ -537,4 +537,4 @@ export JAVA_OPTS="-Xmx512m"
 - **Documentation**: Check service-specific README files
 - **Logs**: Enable DEBUG logging for detailed information
 - **Metrics**: Monitor Grafana dashboards for system health
-- **Health Checks**: Use actuator endpoints for service status 
+- **Health Checks**: Use actuator endpoints for service status

@@ -86,4 +86,4 @@ coverage/
 # Local configuration
 local.properties
 application-local.yml
-application-local.yaml 
+application-local.yaml

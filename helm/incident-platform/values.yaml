@@ -182,9 +182,12 @@ services:
 # Infrastructure dependencies
 postgresql:
   enabled: true
-  auth:
-    postgresPassword: "postgres123"
-    database: "incident_platform"
+  global:
+    postgresql:
+      auth:
+        postgresPassword: "123456"
+        username: "postgres"
+        database: "incident_auth"
   primary:
     persistence:
       enabled: true

@@ -23,8 +23,8 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:admin123}
     virtual-host: ${RABBITMQ_VHOST:/}
     publisher-confirm-type: correlated
     publisher-returns: true
@@ -74,9 +74,10 @@ management:
       exposure:
         include: health,info,metrics,prometheus
   metrics:
-    export:
-      prometheus:
-        enabled: true
+    prometheus:
+      metrics:
+        export:
+          enabled: true
 
 logging:
   level:

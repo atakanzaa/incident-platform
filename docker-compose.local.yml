@@ -10,11 +10,12 @@ services:
     environment:
       POSTGRES_DB: incident_platform
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PASSWORD: 123456
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 30s
@@ -30,6 +31,7 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+      - ./init-scripts/mongo-init.js:/docker-entrypoint-initdb.d/init.js
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 30s
@@ -177,7 +179,7 @@ services:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgresql:5432/incident_platform
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres123
+      - SPRING_DATASOURCE_PASSWORD=123456
       - JAVA_OPTS=-Xmx512m
     depends_on:
       - postgresql

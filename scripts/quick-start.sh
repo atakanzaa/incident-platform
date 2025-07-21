@@ -1,7 +1,7 @@
 #!/bin/bash
 
+# AI-Driven Incident Detection & Response Platform
 # Quick Start Script for Local Development
-# Bu script incident platform'u hızlıca başlatır
 
 set -e
 
@@ -153,10 +153,10 @@ start_infrastructure_only() {
     echo ""
     echo "📌 Infrastructure Servisleri:"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🐘 PostgreSQL: localhost:5432 (postgres/postgres123)"
-    echo "🍃 MongoDB: localhost:27017 (admin/admin123)"
+    echo "🐘 PostgreSQL: localhost:5432 "
+    echo "🍃 MongoDB: localhost:27017 "
     echo "📡 Kafka: localhost:9092"
-    echo "🐰 RabbitMQ: http://localhost:15672 (admin/admin123)"
+    echo "🐰 RabbitMQ: http://localhost:15672 "
     echo "🔴 Redis: localhost:6379"
     echo "📊 Prometheus: http://localhost:9090"
     echo "📈 Grafana: http://localhost:3000 (admin/admin123)"
@@ -197,7 +197,7 @@ show_docker_compose_info() {
     echo "🤖 AI Service: http://localhost:8000"
     echo ""
     echo "🗄️  Databases:"
-    echo "   PostgreSQL: localhost:5432 (postgres/postgres123)"
+    echo "   PostgreSQL: localhost:5432 (postgres/123456)"
     echo "   MongoDB: localhost:27017 (admin/admin123)"
     echo ""
     echo "📡 Messaging:"

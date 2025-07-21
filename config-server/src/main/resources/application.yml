@@ -4,21 +4,26 @@ server:
 spring:
   application:
     name: config-server
+  profiles:
+    active: native
   cloud:
     config:
       server:
+        native:
+          search-locations: classpath:/config
+        # Git disabled for local development
         git:
           uri: https://github.com/atakanzaa/incident-platform-config
           default-label: main
           search-paths: config/{application}
-          clone-on-start: true
-        native:
-          search-locations: classpath:/config
+          clone-on-start: false
+      enabled: ${CONFIG_SERVER_ENABLED:false}  # Disabled by default for local
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+    enabled: ${EUREKA_CLIENT_ENABLED:false}  # Disabled by default for local
   instance:
     prefer-ip-address: true
     

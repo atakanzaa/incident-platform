@@ -145,7 +145,8 @@ services:
 postgresql:
   enabled: true
   auth:
-    postgresPassword: "postgres123"
+    postgresPassword: "123456"
+    username: "postgres"
     database: "incident_platform"
   primary:
     persistence:

@@ -6,6 +6,7 @@ import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.util.Config;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,6 +14,7 @@ import java.io.IOException;
 
 @Configuration
 @Slf4j
+@ConditionalOnProperty(name = "kubernetes.config.enabled", havingValue = "true")
 public class KubernetesConfig {
 
     @Value("${kubernetes.config.in-cluster}")

@@ -1,13 +1,13 @@
 -- Create additional databases if needed
-CREATE DATABASE auth_service;
+CREATE DATABASE incident_auth;
 
 -- Grant privileges
 GRANT ALL PRIVILEGES ON DATABASE incident_platform TO postgres;
-GRANT ALL PRIVILEGES ON DATABASE auth_service TO postgres;
+GRANT ALL PRIVILEGES ON DATABASE incident_auth TO postgres;
 
 -- Create extensions
 \c incident_platform;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-\c auth_service;
+\c incident_auth;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; 

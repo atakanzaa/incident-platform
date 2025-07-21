@@ -5,6 +5,8 @@ spring:
   application:
     name: gateway-service
   cloud:
+    config:
+      enabled: false  # Disable Config Server for local development
     gateway:
       discovery:
         locator:

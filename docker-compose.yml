@@ -177,7 +177,7 @@ services:
       - JAVA_OPTS=-Xmx512m
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgresql:5432/incident_platform
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres123
+      - SPRING_DATASOURCE_PASSWORD=123456
       - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
     networks:
       - incident-platform

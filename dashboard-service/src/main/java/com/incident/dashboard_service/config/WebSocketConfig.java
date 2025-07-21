@@ -7,16 +7,14 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
-import java.util.List;
-
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    @Value("${websocket.allowed-origins}")
-    private List<String> allowedOrigins;
+    @Value("${websocket.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:8080}")
+    private String allowedOriginsString;
 
-    @Value("${websocket.endpoint}")
+    @Value("${websocket.endpoint:/ws}")
     private String endpoint;
 
     @Override
@@ -33,13 +31,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        String[] allowedOrigins = allowedOriginsString.split(",");
+        
         // Register STOMP endpoint
         registry.addEndpoint(endpoint)
-                .setAllowedOrigins(allowedOrigins.toArray(new String[0]))
+                .setAllowedOrigins(allowedOrigins)
                 .withSockJS(); // Enable SockJS fallback options
         
         // Also register without SockJS for native WebSocket clients
         registry.addEndpoint(endpoint)
-                .setAllowedOrigins(allowedOrigins.toArray(new String[0]));
+                .setAllowedOrigins(allowedOrigins);
     }
 } 

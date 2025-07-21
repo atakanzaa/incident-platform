@@ -131,7 +131,7 @@ chmod +x scripts/local-jenkins.sh
 #### 🗄️ Infrastructure
 | Service | URL/Port | Credentials |
 |---------|----------|-------------|
-| 🐘 PostgreSQL | localhost:5432 | postgres/postgres123 |
+| 🐘 PostgreSQL | localhost:5432 | postgres/123456 |
 | 🍃 MongoDB | localhost:27017 | admin/admin123 |
 | 📡 Kafka | localhost:9092 | - |
 | 🐰 RabbitMQ Management | http://localhost:15672 | admin/admin123 |
@@ -319,7 +319,7 @@ SMTP_PASSWORD=your-app-password
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 
 # Database Passwords (optional, has defaults)
-POSTGRES_PASSWORD=postgres123
+POSTGRES_PASSWORD=123456
 MONGODB_PASSWORD=admin123
 RABBITMQ_PASSWORD=admin123
 ```

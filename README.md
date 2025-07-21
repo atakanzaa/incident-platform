@@ -131,10 +131,10 @@ chmod +x scripts/local-jenkins.sh
 #### 🗄️ Infrastructure
 | Service | URL/Port | Credentials |
 |---------|----------|-------------|
-| 🐘 PostgreSQL | localhost:5432 | postgres/123456 |
-| 🍃 MongoDB | localhost:27017 | admin/admin123 |
+| 🐘 PostgreSQL | localhost:5432 | 
+| 🍃 MongoDB | localhost:27017 |
 | 📡 Kafka | localhost:9092 | - |
-| 🐰 RabbitMQ Management | http://localhost:15672 | admin/admin123 |
+| 🐰 RabbitMQ Management | http://localhost:15672 | 
 | 🔴 Redis | localhost:6379 | - |
 
 #### 📈 Monitoring

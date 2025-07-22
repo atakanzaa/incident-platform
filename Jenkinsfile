@@ -7,14 +7,29 @@ pipeline {
     }
     
     environment {
-        DOCKER_REGISTRY = 'your-registry.com'
+        // Docker Registry - Development için Docker Hub kullanıyoruz
+        DOCKER_REGISTRY = '${DOCKER_REGISTRY:-docker.io}'  // Docker Hub (default)
         DOCKER_REPO = 'incident-platform'
+        
+        // Kubernetes - Local/Development için
         KUBECONFIG = credentials('kubeconfig')
+        
+        // Code Quality - Opsiyonel
         SONAR_TOKEN = credentials('sonar-token')
+        
+        // Helm
         HELM_VERSION = '3.12.0'
-        ARGOCD_SERVER = 'argocd.your-domain.com'
+        
+        // ArgoCD - Development için local
+        ARGOCD_SERVER = '${ARGOCD_SERVER:-localhost:8080}'  // Local ArgoCD
+        
+        // Git Repositories
         GIT_REPO = 'https://github.com/atakanzaa/incident-platform.git'
-        GIT_CONFIG_REPO = 'https://github.com/atakanzaa/incident-platform-config.git'
+        GIT_CONFIG_REPO = '${GIT_CONFIG_REPO:-https://github.com/atakanzaa/incident-platform-config.git}'
+        
+        // Environment
+        ENVIRONMENT = '${ENVIRONMENT:-development}'
+        NAMESPACE = '${NAMESPACE:-incident-platform-dev}'
     }
     
     options {

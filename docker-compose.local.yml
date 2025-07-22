@@ -1,4 +1,4 @@
-version: '3.8'
+# version: '3.8'  # Version obsolete in newer Docker Compose
 
 # Local Development Docker Compose
 # Domain olmadan local development için
@@ -39,7 +39,7 @@ services:
       retries: 3
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.4.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -49,17 +49,20 @@ services:
       - zookeeper_data:/var/lib/zookeeper/data
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.4.0
     depends_on:
       - zookeeper
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
     ports:
       - "9092:9092"
+      - "29092:29092"
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
@@ -113,21 +116,22 @@ services:
     depends_on:
       - redis
 
-  # Config Server
-  config-server:
-    build:
-      context: ./config-server
-      dockerfile: Dockerfile
-    ports:
-      - "8888:8888"
-    environment:
-      - SPRING_PROFILES_ACTIVE=local
-      - JAVA_OPTS=-Xmx512m
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # Config Server - DISABLED for local development
+  # All services use their own application.yml files
+  # config-server:
+  #   build:
+  #     context: ./config-server
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8888:8888"
+  #   environment:
+  #     - SPRING_PROFILES_ACTIVE=local
+  #     - JAVA_OPTS=-Xmx512m
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   # Discovery Server
   discovery-server:
@@ -139,8 +143,8 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=local
       - JAVA_OPTS=-Xmx512m
-    depends_on:
-      - config-server
+    # depends_on:
+      # - config-server  # Config Server disabled
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
       interval: 30s
@@ -159,7 +163,7 @@ services:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - JAVA_OPTS=-Xmx512m
     depends_on:
-      - config-server
+      # - config-server  # Config Server disabled
       - discovery-server
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -200,7 +204,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=local
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - JAVA_OPTS=-Xmx512m
     depends_on:
       - kafka
@@ -221,7 +225,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=local
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - AI_SERVICE_URL=http://ai-service:8000
       - JAVA_OPTS=-Xmx1g
     depends_on:
@@ -244,7 +248,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=local
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_USERNAME=admin
       - RABBITMQ_PASSWORD=admin123
@@ -274,6 +278,10 @@ services:
       - RABBITMQ_PASSWORD=admin123
       - SPRING_MAIL_HOST=smtp.gmail.com
       - SPRING_MAIL_PORT=587
+      - SPRING_MAIL_USERNAME=${MAIL_USERNAME:-atakanzaa43@gmail.com}
+      - SPRING_MAIL_PASSWORD=${MAIL_PASSWORD:-kdpe niqt jkbn idni}
+      - EMAIL_FROM=${MAIL_USERNAME:-atakanzaa43@gmail.com}
+      - EMAIL_TO_ADDRESSES=${MAIL_USERNAME:-atakanzaa43@gmail.com}
       - JAVA_OPTS=-Xmx512m
     depends_on:
       - rabbitmq
@@ -318,7 +326,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=local
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - MONGODB_HOST=mongodb
       - MONGODB_PORT=27017
       - MONGODB_DATABASE=incident_tracker
@@ -345,7 +353,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=local
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JAVA_OPTS=-Xmx512m

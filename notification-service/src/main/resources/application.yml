@@ -21,8 +21,8 @@ spring:
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
+    username: ${MAIL_USERNAME:noreply@incident-platform.local}
+    password: ${MAIL_PASSWORD:dummy123}
     properties:
       mail:
         smtp:
@@ -52,8 +52,8 @@ notification:
   channels:
     email:
       enabled: ${EMAIL_ENABLED:true}
-      from: ${EMAIL_FROM:noreply@incident-platform.com}
-      to-addresses: ${EMAIL_TO_ADDRESSES:admin@incident-platform.com}
+      from: ${EMAIL_FROM:atakanzaa43@gmail.com}
+      to-addresses: ${EMAIL_TO_ADDRESSES:atakanzaa43@gmail.com}
     slack:
       enabled: ${SLACK_ENABLED:false}
       webhook-url: ${SLACK_WEBHOOK_URL:}

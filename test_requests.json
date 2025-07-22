@@ -1,0 +1,25 @@
+{
+  "register_user": {
+    "username": "testuser",
+    "email": "test@example.com", 
+    "password": "password123"
+  },
+  "login_user": {
+    "username": "testuser",
+    "password": "password123"
+  },
+  "log_event": {
+    "timestamp": "2025-07-22T15:50:00Z",
+    "level": "ERROR",
+    "service": "test-service", 
+    "message": "Test error message for anomaly detection",
+    "source": "test-source"
+  },
+  "anomaly_log": {
+    "timestamp": "2025-07-22T15:51:00Z",
+    "level": "CRITICAL",
+    "service": "database-service",
+    "message": "CRITICAL: Database connection timeout after 30 seconds - potential DDoS attack detected",
+    "source": "db-connection-pool"
+  }
+} 

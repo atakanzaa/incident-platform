@@ -1,4 +1,4 @@
-version: '3.8'
+# version: '3.8'  # Version obsolete in newer Docker Compose
 
 services:
   # Infrastructure Services

@@ -9,14 +9,12 @@ spring:
   cloud:
     config:
       server:
+        bootstrap: false  # Disable config server bootstrap
         native:
           search-locations: classpath:/config
-        # Git disabled for local development
         git:
-          uri: https://github.com/atakanzaa/incident-platform-config
+          uri: file:///tmp/config-repo  # Dummy local git repo to satisfy requirement
           default-label: main
-          search-paths: config/{application}
-          clone-on-start: false
       enabled: ${CONFIG_SERVER_ENABLED:false}  # Disabled by default for local
 
 eureka:

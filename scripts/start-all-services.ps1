@@ -116,9 +116,8 @@ Wait-ForPort "Redis" 6379
 
 Write-Host "`nStep 2: Core Platform Services" -ForegroundColor Magenta
 
-Write-Host "Starting Config Server..." -ForegroundColor White
-docker-compose -f $ComposeFile up -d config-server
-Wait-ForService "Config Server" 8888
+# Config Server disabled for local development - services use their own application.yml
+Write-Host "Config Server: DISABLED (services use local configs)" -ForegroundColor Yellow
 
 Write-Host "Starting Discovery Server..." -ForegroundColor White
 docker-compose -f $ComposeFile up -d discovery-server

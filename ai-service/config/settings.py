@@ -4,11 +4,19 @@ Configuration settings for AI Service
 
 import os
 from functools import lru_cache
-from pydantic import BaseSettings, Field
+from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import List, Dict, Any
 
 class Settings(BaseSettings):
     """Application settings"""
+    
+    # Pydantic configuration to resolve model_ namespace conflicts
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "protected_namespaces": ()
+    }
     
     # Service Configuration
     service_name: str = Field(default="ai-service", env="SERVICE_NAME")
@@ -84,10 +92,6 @@ class Settings(BaseSettings):
     # Ensemble settings
     ensemble_voting: str = Field(default="soft", env="ENSEMBLE_VOTING")
     ensemble_weights: List[float] = Field(default=[0.4, 0.3, 0.3], env="ENSEMBLE_WEIGHTS")
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 @lru_cache()
 def get_settings() -> Settings:

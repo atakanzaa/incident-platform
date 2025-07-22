@@ -93,9 +93,8 @@ docker-compose -f "$COMPOSE_FILE" up -d redis
 wait_for_port "Redis" 6379
 
 echo "Step 2: Core Platform Services"
-echo "Starting Config Server..."
-docker-compose -f "$COMPOSE_FILE" up -d config-server
-wait_for_service "Config Server" 8888
+# Config Server disabled for local development - services use their own application.yml
+echo "Config Server: DISABLED (services use local configs)"
 
 echo "Starting Discovery Server..."
 docker-compose -f "$COMPOSE_FILE" up -d discovery-server

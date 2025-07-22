@@ -207,27 +207,27 @@ class AnomalyDetectorService:
             if 'isolation_forest' in self.models:
                 pred = self.models['isolation_forest'].predict(features)[0]
                 score = self.models['isolation_forest'].score_samples(features)[0]
-                predictions['isolation_forest'] = pred == -1  # -1 means anomaly
-                scores['isolation_forest'] = self._normalize_score(score, 'isolation_forest')
+                predictions['isolation_forest'] = bool(pred == -1)  # Convert numpy.bool_ to Python bool
+                scores['isolation_forest'] = float(self._normalize_score(score, 'isolation_forest'))
             
             # One-Class SVM
             if 'one_class_svm' in self.models:
                 pred = self.models['one_class_svm'].predict(features)[0]
                 score = self.models['one_class_svm'].score_samples(features)[0]
-                predictions['one_class_svm'] = pred == -1
-                scores['one_class_svm'] = self._normalize_score(score, 'one_class_svm')
+                predictions['one_class_svm'] = bool(pred == -1)  # Convert numpy.bool_ to Python bool
+                scores['one_class_svm'] = float(self._normalize_score(score, 'one_class_svm'))
             
             # Local Outlier Factor
             if 'local_outlier_factor' in self.models:
                 pred = self.models['local_outlier_factor'].predict(features)[0]
                 score = self.models['local_outlier_factor'].score_samples(features)[0]
-                predictions['local_outlier_factor'] = pred == -1
-                scores['local_outlier_factor'] = self._normalize_score(score, 'local_outlier_factor')
+                predictions['local_outlier_factor'] = bool(pred == -1)  # Convert numpy.bool_ to Python bool
+                scores['local_outlier_factor'] = float(self._normalize_score(score, 'local_outlier_factor'))
             
             # Ensemble prediction
-            ensemble_score = np.mean(list(scores.values())) if scores else 0.5
-            is_anomaly = ensemble_score > self.config['anomaly_threshold']
-            confidence = abs(ensemble_score - 0.5) * 2  # Convert to 0-1 range
+            ensemble_score = float(np.mean(list(scores.values()))) if scores else 0.5  # Convert numpy.float64 to Python float
+            is_anomaly = bool(ensemble_score > self.config['anomaly_threshold'])  # Ensure Python bool
+            confidence = float(abs(ensemble_score - 0.5) * 2)  # Convert to 0-1 range, ensure Python float
             
             # Determine anomaly type and reasons
             anomaly_type, reasons = self._analyze_anomaly(log_event, predictions, scores)
@@ -235,7 +235,7 @@ class AnomalyDetectorService:
             # Generate recommendations
             recommendations = self._generate_recommendations(log_event, anomaly_type, ensemble_score)
             
-            processing_time = (time.time() - start_time) * 1000
+            processing_time = float((time.time() - start_time) * 1000)  # Ensure Python float
             
             return AnomalyResult(
                 log_id=log_event.log_id,
@@ -409,14 +409,14 @@ class AnomalyDetectorService:
                 anomaly_type = AnomalyType.PERFORMANCE_DEGRADATION
         
         score = min(score, 1.0)
-        is_anomaly = score > self.config['anomaly_threshold']
+        is_anomaly = bool(score > self.config['anomaly_threshold'])  # Ensure Python bool
         
-        processing_time = (time.time() - start_time) * 1000
+        processing_time = float((time.time() - start_time) * 1000)  # Ensure Python float
         
         return AnomalyResult(
             log_id=log_event.log_id,
             is_anomaly=is_anomaly,
-            anomaly_score=score,
+            anomaly_score=float(score),  # Ensure Python float
             confidence=0.6,  # Lower confidence for heuristic scoring
             anomaly_type=anomaly_type if is_anomaly else None,
             anomaly_reasons=reasons if is_anomaly else [],

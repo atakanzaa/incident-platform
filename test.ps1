@@ -17,8 +17,18 @@ $services = @(
 
 foreach($service in $services) {
     try {
-        $response = Invoke-RestMethod -Uri "http://localhost:$($service.Port)/actuator/health" -TimeoutSec 5
-        if($response.status -eq "UP") {
+        # AI Service uses /health instead of /actuator/health
+        $healthEndpoint = if($service.Name -eq "AI Service") { "/health" } else { "/actuator/health" }
+        $response = Invoke-RestMethod -Uri "http://localhost:$($service.Port)$healthEndpoint" -TimeoutSec 5
+        
+        # Check different response formats
+        $isHealthy = if($service.Name -eq "AI Service") { 
+            $response.status -eq "healthy" 
+        } else { 
+            $response.status -eq "UP" 
+        }
+        
+        if($isHealthy) {
             Write-Host "✅ $($service.Name) - HEALTHY" -ForegroundColor Green
         } else {
             Write-Host "⚠️  $($service.Name) - $($response.status)" -ForegroundColor Yellow

@@ -407,6 +407,7 @@ pipeline {
             }
         }
         unstable {
+            echo "Pipeline unstable!"
             // slackSend(
             //     channel: env.SLACK_CHANNEL,
             //     color: 'warning',

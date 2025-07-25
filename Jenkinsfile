@@ -229,8 +229,8 @@ pipeline {
             when {
                 anyOf {
                     branch 'main'
+                    branch 'staging'
                     branch 'develop'
-                    branch 'development'
                 }
             }
             parallel {
@@ -283,7 +283,7 @@ pipeline {
         
         stage('Deploy to Development') {
             when {
-                branch 'development'
+                branch 'develop'
             }
             steps {
                 script {
@@ -295,7 +295,7 @@ pipeline {
         
         stage('Deploy to Staging') {
             when {
-                branch 'develop'
+                branch 'staging'
             }
             steps {
                 script {
@@ -359,6 +359,7 @@ pipeline {
             when {
                 anyOf {
                     branch 'main'
+                    branch 'staging'
                     branch 'develop'
                 }
             }
@@ -373,13 +374,13 @@ pipeline {
     
     post {
         always {
-            script {
-                // Replace publishTestResults with junit for test results
+            node {
                 junit '**/target/surefire-reports/*.xml'
                 junit 'ai-service/test-results.xml'
+                junit '**/target/failsafe-reports/*.xml'
                 archiveArtifacts artifacts: 'target/*.jar, ai-service/dist/*', allowEmptyArchive: true
+                cleanWs()
             }
-            cleanWs()
         }
         success {
             script {
@@ -422,9 +423,9 @@ def getEnvironment() {
     switch(env.BRANCH_NAME) {
         case 'main':
             return 'production'
-        case 'develop':
+        case 'staging':
             return 'staging'
-        case 'development':
+        case 'develop':
             return 'development'
         default:
             return 'development'

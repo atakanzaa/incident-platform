@@ -229,8 +229,8 @@ pipeline {
             when {
                 anyOf {
                     branch 'main'
+                    branch 'staging'
                     branch 'develop'
-                    branch 'development'
                 }
             }
             parallel {
@@ -283,7 +283,7 @@ pipeline {
         
         stage('Deploy to Development') {
             when {
-                branch 'development'
+                branch 'develop'
             }
             steps {
                 script {
@@ -295,7 +295,7 @@ pipeline {
         
         stage('Deploy to Staging') {
             when {
-                branch 'develop'
+                branch 'staging'
             }
             steps {
                 script {
@@ -359,7 +359,7 @@ pipeline {
             when {
                 anyOf {
                     branch 'main'
-                    branch 'develop'
+                    branch 'staging'
                 }
             }
             steps {
@@ -421,9 +421,9 @@ def getEnvironment() {
     switch(env.BRANCH_NAME) {
         case 'main':
             return 'production'
-        case 'develop':
+        case 'staging':
             return 'staging'
-        case 'development':
+        case 'develop':
             return 'development'
         default:
             return 'development'

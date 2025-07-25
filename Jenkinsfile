@@ -123,7 +123,7 @@ pipeline {
                     }
                     post {
                         always {
-                            publishTestResults testResultsPattern: '**/target/surefire-reports/*.xml'
+                            junit '**/target/surefire-reports/*.xml'
                             publishCoverage adapters: [jacoco()], sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
                         }
                     }
@@ -140,7 +140,7 @@ pipeline {
                     }
                     post {
                         always {
-                            publishTestResults testResultsPattern: 'ai-service/test-results.xml'
+                            junit 'ai-service/test-results.xml'
                         }
                     }
                 }
@@ -162,7 +162,7 @@ pipeline {
             post {
                 always {
                     sh 'docker-compose -f docker-compose.${ENVIRONMENT}.yml down || true'
-                    publishTestResults testResultsPattern: '**/target/failsafe-reports/*.xml'
+                    junit '**/target/failsafe-reports/*.xml'
                 }
             }
         }
@@ -374,7 +374,9 @@ pipeline {
     post {
         always {
             script {
-                publishTestResults testResultsPattern: '**/target/*-reports/*.xml'
+                // Replace publishTestResults with junit for test results
+                junit '**/target/surefire-reports/*.xml'
+                junit 'ai-service/test-results.xml'
                 archiveArtifacts artifacts: 'target/*.jar, ai-service/dist/*', allowEmptyArchive: true
             }
             cleanWs()
@@ -385,12 +387,11 @@ pipeline {
                 message += "\n📋 Job: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
                 message += "\n🏷️ Version: ${env.DOCKER_TAG}"
                 message += "\n👤 Triggered by: ${env.BUILD_USER ?: 'System'}"
-                
-                slackSend(
-                    channel: env.SLACK_CHANNEL,
-                    color: 'good',
-                    message: message
-                )
+                // slackSend(
+                //     channel: env.SLACK_CHANNEL,
+                //     color: 'good',
+                //     message: message
+                // )
             }
         }
         failure {
@@ -398,20 +399,19 @@ pipeline {
                 def message = "❌ Pipeline failed for ${env.ENVIRONMENT}"
                 message += "\n📋 Job: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
                 message += "\n🔗 Build URL: ${env.BUILD_URL}"
-                
-                slackSend(
-                    channel: env.SLACK_CHANNEL,
-                    color: 'danger',
-                    message: message
-                )
+                // slackSend(
+                //     channel: env.SLACK_CHANNEL,
+                //     color: 'danger',
+                //     message: message
+                // )
             }
         }
         unstable {
-            slackSend(
-                channel: env.SLACK_CHANNEL,
-                color: 'warning',
-                message: "⚠️ Pipeline unstable for ${env.ENVIRONMENT} - ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
-            )
+            // slackSend(
+            //     channel: env.SLACK_CHANNEL,
+            //     color: 'warning',
+            //     message: "⚠️ Pipeline unstable for ${env.ENVIRONMENT} - ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+            // )
         }
     }
 }

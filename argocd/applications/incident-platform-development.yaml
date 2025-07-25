@@ -1,25 +1,25 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: incident-platform-staging
+  name: incident-platform-development
   namespace: argocd
   labels:
     app: incident-platform
-    env: staging
+    env: development
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
     repoURL: https://github.com/atakanzaa/incident-platform-config.git
-    targetRevision: develop
-    path: environments/staging
+    targetRevision: development
+    path: environments/development
     helm:
       valueFiles:
         - values.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: incident-platform-staging
+    namespace: incident-platform-dev
   syncPolicy:
     automated:
       prune: true
@@ -30,12 +30,12 @@ spec:
       - PrunePropagationPolicy=foreground
       - PruneLast=true
     retry:
-      limit: 5
+      limit: 3
       backoff:
-        duration: 5s
+        duration: 3s
         factor: 2
-        maxDuration: 3m
-  revisionHistoryLimit: 10
+        maxDuration: 1m
+  revisionHistoryLimit: 5
   ignoreDifferences:
     - group: apps
       kind: Deployment
@@ -45,17 +45,13 @@ spec:
       kind: Service
       jsonPointers:
         - /spec/clusterIP
-    - group: autoscaling
-      kind: HorizontalPodAutoscaler
-      jsonPointers:
-        - /spec/replicas
-        - /status
+        - /spec/ports/*/nodePort
   info:
     - name: Description
-      value: "Incident Platform Staging Environment"
+      value: "Incident Platform Development Environment"
     - name: Repository
       value: "https://github.com/atakanzaa/incident-platform-config.git"
     - name: Branch
-      value: "develop"
+      value: "development"
     - name: Contact
-      value: "staging-team@company.com" 
+      value: "development-team@company.com" 

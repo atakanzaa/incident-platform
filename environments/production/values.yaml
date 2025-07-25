@@ -1,0 +1,494 @@
+# Production environment configuration
+global:
+  imageRegistry: "your-registry.com"
+  imageRepository: "incident-platform"
+  imageTag: "main-latest"
+  imagePullPolicy: IfNotPresent
+
+environment: "production"
+
+# High availability replica counts for production
+services:
+  config-server:
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - config-server
+            topologyKey: kubernetes.io/hostname
+  
+  discovery-server:
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - discovery-server
+            topologyKey: kubernetes.io/hostname
+  
+  gateway-service:
+    replicas: 3
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    ingress:
+      enabled: true
+      className: "nginx"
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/use-regex: "true"
+        nginx.ingress.kubernetes.io/rate-limit: "100"
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      hosts:
+        - host: incident-platform.your-domain.com
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: incident-platform-prod-tls
+          hosts:
+            - incident-platform.your-domain.com
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - gateway-service
+            topologyKey: kubernetes.io/hostname
+  
+  auth-service:
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    env:
+      JWT_SECRET: "production-secret-key-change-this"
+      SESSION_TIMEOUT: "3600"
+      BCRYPT_ROUNDS: "12"
+  
+  log-collector-service:
+    replicas: 3
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+  
+  anomaly-detector-service:
+    replicas: 2
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+  
+  alert-manager-service:
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+  
+  notification-service:
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    env:
+      SMTP_TLS: "true"
+      NOTIFICATION_RETRY_COUNT: "3"
+      RATE_LIMIT_ENABLED: "true"
+  
+  auto-responder-service:
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    env:
+      DRY_RUN: "false"
+      APPROVAL_REQUIRED: "true"
+      MAX_ACTIONS_PER_HOUR: "10"
+  
+  incident-tracker:
+    replicas: 2
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+  
+  dashboard-service:
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+  
+  ai-service:
+    replicas: 2
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+    env:
+      MODEL_CACHE_SIZE: "5"
+      AUTO_RETRAIN_ENABLED: "true"
+      METRICS_ENABLED: "true"
+      API_KEY_REQUIRED: "true"
+
+# Production-grade infrastructure
+postgresql:
+  enabled: true
+  architecture: "replication"
+  auth:
+    postgresPassword: "CHANGE_THIS_PRODUCTION_PASSWORD"
+    username: "postgres"
+    database: "incident_platform"
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: "fast-ssd"
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                - primary
+            topologyKey: kubernetes.io/hostname
+  readReplicas:
+    replicaCount: 1
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: "fast-ssd"
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+
+mongodb:
+  enabled: true
+  architecture: "replicaset"
+  auth:
+    enabled: true
+    rootPassword: "CHANGE_THIS_PRODUCTION_PASSWORD"
+    username: "incident_user"
+    password: "CHANGE_THIS_PASSWORD"
+    database: "incident_platform"
+  replicaSetName: "rs0"
+  replicaCount: 3
+  persistence:
+    enabled: true
+    size: 50Gi
+    storageClass: "fast-ssd"
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+              - mongodb
+          topologyKey: kubernetes.io/hostname
+
+kafka:
+  enabled: true
+  replicaCount: 3
+  auth:
+    clientProtocol: sasl
+    sasl:
+      mechanisms: scram-sha-256
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: "fast-ssd"
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+              - kafka
+          topologyKey: kubernetes.io/hostname
+  zookeeper:
+    enabled: true
+    replicaCount: 3
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: "fast-ssd"
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+
+rabbitmq:
+  enabled: true
+  auth:
+    username: "admin"
+    password: "CHANGE_THIS_PRODUCTION_PASSWORD"
+    erlangCookie: "CHANGE_THIS_COOKIE"
+  clustering:
+    enabled: true
+    replicaCount: 3
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: "fast-ssd"
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+              - rabbitmq
+          topologyKey: kubernetes.io/hostname
+
+redis:
+  enabled: true
+  architecture: "replication"
+  auth:
+    enabled: true
+    password: "CHANGE_THIS_PRODUCTION_PASSWORD"
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: "fast-ssd"
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: "fast-ssd"
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+
+# Production autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Production monitoring
+prometheus:
+  enabled: true
+  server:
+    persistentVolume:
+      enabled: true
+      size: 20Gi
+      storageClass: "fast-ssd"
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+    retention: "15d"
+    ingress:
+      enabled: true
+      hosts:
+        - prometheus.your-domain.com
+      tls:
+        - secretName: prometheus-prod-tls
+          hosts:
+            - prometheus.your-domain.com
+
+grafana:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: "fast-ssd"
+  adminPassword: "CHANGE_THIS_ADMIN_PASSWORD"
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  ingress:
+    enabled: true
+    hosts:
+      - grafana.your-domain.com
+    tls:
+      - secretName: grafana-prod-tls
+        hosts:
+          - grafana.your-domain.com
+
+# Production security
+podSecurityPolicy:
+  enabled: true
+
+networkPolicy:
+  enabled: true
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT:role/incident-platform-role"
+
+# Production backup
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention: "30d"
+  storage:
+    type: "s3"
+    bucket: "incident-platform-backups"
+    region: "us-west-2"
+
+# Resource quotas
+resourceQuota:
+  enabled: true
+  hard:
+    requests.cpu: "20"
+    requests.memory: "40Gi"
+    limits.cpu: "40"
+    limits.memory: "80Gi"
+    persistentvolumeclaims: "20"
+
+# Production-specific settings
+productionSettings:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 2000
+  tolerations:
+    - key: "production"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  nodeSelector:
+    environment: "production"
+    instance-type: "production-grade" 

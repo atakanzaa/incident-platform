@@ -1,12 +1,15 @@
+# Common configuration for all environments
 server:
   port: 8080
 
 spring:
   application:
     name: gateway-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:development}
   cloud:
     config:
-      enabled: false  # Disable Config Server for local development
+      enabled: false
     gateway:
       discovery:
         locator:
@@ -76,13 +79,45 @@ spring:
             - Path=/ws/**
           filters:
             - AuthenticationFilter
-      
+
+# Common Eureka configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+# Common JWT configuration
+jwt:
+  secret: ${JWT_SECRET:mySecretKey12345678901234567890}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# Common management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    gateway:
+      enabled: true
+
+---
+# Development environment
+spring:
+  config:
+    activate:
+      on-profile: development
+  cloud:
+    gateway:
       globalcors:
         corsConfigurations:
           '[/**]':
             allowedOrigins:
               - "http://localhost:3000"
               - "http://localhost:5173"
+              - "http://localhost:8080"
             allowedMethods:
               - GET
               - POST
@@ -98,23 +133,153 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
 
 jwt:
-  secret: ${JWT_SECRET:mySecretKey12345678901234567890}
-  expiration: 86400000  # 24 hours
+  secret: mySecretKey12345678901234567890
+  expiration: 86400000
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.reactive.function.client: TRACE
+    com.incident.gateway_service: DEBUG
+
+---
+# Staging environment
+spring:
+  config:
+    activate:
+      on-profile: staging
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "https://incident-platform-staging.your-domain.com"
+              - "https://dashboard-staging.your-domain.com"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "Content-Type"
+              - "Authorization"
+              - "X-Requested-With"
+            allowCredentials: true
+            maxAge: 3600
+      # Rate limiting for staging
+      filter:
+        request-rate-limiter:
+          enabled: true
+          redis-rate-limiter:
+            replenish-rate: 100
+            burst-capacity: 200
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 3600000
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    org.springframework.web.reactive.function.client: WARN
+    com.incident.gateway_service: INFO
+    root: INFO
+
+---
+# Production environment
+spring:
+  config:
+    activate:
+      on-profile: production
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "https://incident-platform.your-domain.com"
+              - "https://dashboard.your-domain.com"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "Content-Type"
+              - "Authorization"
+              - "X-Requested-With"
+            allowCredentials: true
+            maxAge: 1800
+      # Enhanced rate limiting for production
+      filter:
+        request-rate-limiter:
+          enabled: true
+          redis-rate-limiter:
+            replenish-rate: 50
+            burst-capacity: 100
+        retry:
+          retries: 3
+          statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
+          methods: GET,POST
+          backoff:
+            firstBackoff: 50ms
+            maxBackoff: 500ms
+        circuit-breaker:
+          enabled: true
+          failure-threshold: 50
+          slow-call-duration-threshold: 5000
+          slow-call-rate-threshold: 50
+          sliding-window-size: 100
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/
+    registry-fetch-interval-seconds: 10
+    heartbeat-executor-thread-pool-size: 2
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 1800000
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
-  endpoint:
-    gateway:
-      enabled: true
+        include: health,info,gateway,metrics,prometheus
+
+# Production security and monitoring
+security:
+  rate-limit:
+    enabled: true
+    requests-per-minute: 1000
+    burst-capacity: 1500
+
+monitoring:
+  tracing:
+    enabled: true
+    sampling-rate: 0.1
+  metrics:
+    enabled: true
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.web.reactive.function.client: TRACE 
+    org.springframework.cloud.gateway: WARN
+    org.springframework.web.reactive.function.client: ERROR
+    com.incident.gateway_service: WARN
+    root: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: /var/log/gateway-service/application.log 

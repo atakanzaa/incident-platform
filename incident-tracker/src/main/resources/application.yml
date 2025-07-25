@@ -1,17 +1,14 @@
+# Common configuration for all environments
 server:
   port: 8087
 
 spring:
   application:
     name: incident-tracker-service
-  data:
-    mongodb:
-      host: ${MONGODB_HOST:localhost}
-      port: ${MONGODB_PORT:27017}
-      database: ${MONGODB_DATABASE:incident_tracker}
-      username: ${MONGODB_USERNAME:}
-      password: ${MONGODB_PASSWORD:}
-      authentication-database: ${MONGODB_AUTH_DB:admin}
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:development}
+  
+  # Common Kafka configuration
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -23,38 +20,31 @@ spring:
         spring.json.trusted.packages: "*"
         spring.json.type.mapping: "alert:com.incident.incident_tracker.model.Alert"
       enable-auto-commit: false
+      
   cloud:
     config:
       enabled: false
 
+# Common Eureka configuration
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
 
+# Common Kafka topics
 kafka:
   topics:
     alerts-critical: alerts.critical
     alerts-info: alerts.info
 
-incident:
-  retention:
-    days: 90  # Keep incidents for 90 days
-    cleanup-interval: 24  # Cleanup every 24 hours
-  indexing:
-    enable-text-search: true
-    max-search-results: 1000
-  aggregation:
-    enable-metrics: true
-    window-minutes: 15  # Aggregate metrics every 15 minutes
-
+# Common management endpoints
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics
   metrics:
     export:
       prometheus:
@@ -62,8 +52,179 @@ management:
           export:
             enabled: true
 
+---
+# Development environment
+spring:
+  config:
+    activate:
+      on-profile: development
+  data:
+    mongodb:
+      host: ${MONGODB_HOST:localhost}
+      port: ${MONGODB_PORT:27017}
+      database: ${MONGODB_DATABASE:incident_tracker}
+      username: ${MONGODB_USERNAME:}
+      password: ${MONGODB_PASSWORD:}
+      authentication-database: ${MONGODB_AUTH_DB:admin}
+  kafka:
+    bootstrap-servers: localhost:9092
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+# Development incident configuration
+incident:
+  retention:
+    days: 30  # Keep incidents for 30 days in development
+    cleanup-interval: 24
+  indexing:
+    enable-text-search: true
+    max-search-results: 1000
+  aggregation:
+    enable-metrics: true
+    window-minutes: 15
+
 logging:
   level:
     com.incident.incident_tracker: DEBUG
     org.springframework.data.mongodb: INFO
-    org.apache.kafka: INFO 
+    org.apache.kafka: INFO
+
+---
+# Staging environment
+spring:
+  config:
+    activate:
+      on-profile: staging
+  data:
+    mongodb:
+      host: ${MONGODB_HOST:mongodb-staging}
+      port: ${MONGODB_PORT:27017}
+      database: ${MONGODB_DATABASE:incident_tracker}
+      username: ${MONGODB_USERNAME}
+      password: ${MONGODB_PASSWORD}
+      authentication-database: ${MONGODB_AUTH_DB:admin}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka-staging:9092}
+    consumer:
+      properties:
+        security.protocol: SASL_PLAINTEXT
+        sasl.mechanism: SCRAM-SHA-256
+        sasl.jaas.config: ${KAFKA_SASL_CONFIG}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/
+
+# Staging incident configuration
+incident:
+  retention:
+    days: 60  # Keep incidents for 60 days in staging
+    cleanup-interval: 12
+  indexing:
+    enable-text-search: true
+    max-search-results: 500
+  aggregation:
+    enable-metrics: true
+    window-minutes: 10
+
+logging:
+  level:
+    com.incident.incident_tracker: INFO
+    org.springframework.data.mongodb: WARN
+    org.apache.kafka: WARN
+    root: INFO
+
+---
+# Production environment
+spring:
+  config:
+    activate:
+      on-profile: production
+  data:
+    mongodb:
+      host: ${MONGODB_HOST}
+      port: ${MONGODB_PORT:27017}
+      database: ${MONGODB_DATABASE:incident_tracker}
+      username: ${MONGODB_USERNAME}
+      password: ${MONGODB_PASSWORD}
+      authentication-database: ${MONGODB_AUTH_DB:admin}
+      # Production MongoDB connection settings
+      options:
+        max-connections-per-host: 50
+        min-connections-per-host: 5
+        max-wait-time: 10000
+        connect-timeout: 10000
+        socket-timeout: 10000
+        max-connection-idle-time: 60000
+        max-connection-life-time: 120000
+        
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      properties:
+        security.protocol: SASL_SSL
+        sasl.mechanism: SCRAM-SHA-256
+        sasl.jaas.config: ${KAFKA_SASL_CONFIG}
+        ssl.truststore.location: ${SSL_TRUSTSTORE_LOCATION}
+        ssl.truststore.password: ${SSL_TRUSTSTORE_PASSWORD}
+      max-poll-records: 100
+      fetch-min-size: 1024
+      fetch-max-wait: 5000
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/
+    registry-fetch-interval-seconds: 10
+    heartbeat-executor-thread-pool-size: 2
+
+# Production incident configuration
+incident:
+  retention:
+    days: 365  # Keep incidents for 1 year in production
+    cleanup-interval: 6
+  indexing:
+    enable-text-search: true
+    max-search-results: 10000
+  aggregation:
+    enable-metrics: true
+    window-minutes: 5
+  archival:
+    enabled: true
+    archive-after-days: 180
+    archive-location: ${ARCHIVE_LOCATION:s3://incident-archives/}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+# Production monitoring and alerting
+monitoring:
+  alerts:
+    enabled: true
+    thresholds:
+      high-volume-incidents: 100
+      critical-incidents: 10
+      processing-latency: 5000
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"
+    retention-days: 30
+
+logging:
+  level:
+    com.incident.incident_tracker: WARN
+    org.springframework.data.mongodb: ERROR
+    org.apache.kafka: ERROR
+    root: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: /var/log/incident-tracker/application.log 

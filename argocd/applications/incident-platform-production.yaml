@@ -6,14 +6,24 @@ metadata:
   labels:
     app: incident-platform
     env: production
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: production-alerts
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: production-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: production-alerts
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
     repoURL: https://github.com/atakanzaa/incident-platform-config.git
-    targetRevision: HEAD
+    targetRevision: main
     path: environments/production
+    helm:
+      valueFiles:
+        - values.yaml
+      parameters:
+        - name: global.environment
+          value: production
   destination:
     server: https://kubernetes.default.svc
     namespace: incident-platform-prod
@@ -23,6 +33,7 @@ spec:
       - CreateNamespace=true
       - PrunePropagationPolicy=foreground
       - PruneLast=true
+      - RespectIgnoreDifferences=true
     retry:
       limit: 3
       backoff:
@@ -44,10 +55,26 @@ spec:
       jsonPointers:
         - /spec/replicas
         - /status
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+  operation:
+    sync:
+      syncOptions:
+        - Validate=true
+        - PrunePropagationPolicy=foreground
+        - RespectIgnoreDifferences=true
   info:
     - name: Description
       value: "Incident Platform Production Environment"
     - name: Repository
       value: "https://github.com/atakanzaa/incident-platform-config.git"
+    - name: Branch
+      value: "main"
     - name: Contact
-      value: "atakanzaa@users.noreply.github.com" 
+      value: "production-team@company.com"
+    - name: Approval Required
+      value: "Yes - Manual deployment only"
+    - name: Backup Schedule
+      value: "Daily at 2 AM UTC" 

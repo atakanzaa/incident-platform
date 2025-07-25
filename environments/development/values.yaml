@@ -1,11 +1,11 @@
-# Local development environment configuration
+# Development environment configuration
 global:
   imageRegistry: "localhost:5000"  # Local Docker registry
   imageRepository: "incident-platform"
   imageTag: "latest"
   imagePullPolicy: Always
 
-environment: "local"
+environment: "development"
 
 # Minimal replicas for local development
 services:
@@ -300,7 +300,7 @@ backup:
   enabled: false
 
 # Local development için ek konfigürasyon
-localDevelopment:
+developmentSettings:
   enabled: true
   # NodePort aralıkları
   nodePorts:

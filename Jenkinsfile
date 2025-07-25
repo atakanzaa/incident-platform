@@ -7,48 +7,81 @@ pipeline {
     }
     
     environment {
-        // Docker Registry - Development için Docker Hub kullanıyoruz
-        DOCKER_REGISTRY = '${DOCKER_REGISTRY:-docker.io}'  // Docker Hub (default)
+        // Docker Registry Configuration
+        DOCKER_REGISTRY = '${DOCKER_REGISTRY:-your-registry.com}'
         DOCKER_REPO = 'incident-platform'
         
-        // Kubernetes - Local/Development için
+        // Environment Detection
+        ENVIRONMENT = getEnvironment()
+        TARGET_NAMESPACE = getTargetNamespace()
+        
+        // Kubernetes Configuration
         KUBECONFIG = credentials('kubeconfig')
         
-        // Code Quality - Opsiyonel
+        // Code Quality
         SONAR_TOKEN = credentials('sonar-token')
         
         // Helm
         HELM_VERSION = '3.12.0'
         
-        // ArgoCD - Development için local
-        ARGOCD_SERVER = '${ARGOCD_SERVER:-localhost:8080}'  // Local ArgoCD
+        // ArgoCD Configuration
+        ARGOCD_SERVER = getArgocdServer()
+        ARGOCD_CREDENTIALS = credentials('argocd-credentials')
         
         // Git Repositories
         GIT_REPO = 'https://github.com/atakanzaa/incident-platform.git'
-        GIT_CONFIG_REPO = '${GIT_CONFIG_REPO:-https://github.com/atakanzaa/incident-platform-config.git}'
+        GIT_CONFIG_REPO = 'https://github.com/atakanzaa/incident-platform-config.git'
         
-        // Environment
-        ENVIRONMENT = '${ENVIRONMENT:-development}'
-        NAMESPACE = '${NAMESPACE:-incident-platform-dev}'
+        // Slack Notifications
+        SLACK_CHANNEL = getSlackChannel()
     }
     
     options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 45, unit: 'MINUTES')
+        buildDiscarder(logRotator(
+            numToKeepStr: env.BRANCH_NAME == 'main' ? '20' : '10'
+        ))
+        timeout(time: 60, unit: 'MINUTES')
         skipStagesAfterUnstable()
+        timestamps()
     }
     
     stages {
-        stage('Checkout') {
+        stage('Initialization') {
             steps {
-                checkout scm
                 script {
+                    echo "🚀 Starting pipeline for ${env.ENVIRONMENT} environment"
+                    echo "📋 Branch: ${env.BRANCH_NAME}"
+                    echo "🎯 Target Namespace: ${env.TARGET_NAMESPACE}"
+                    
                     env.GIT_COMMIT_SHORT = sh(
                         script: 'git rev-parse --short HEAD',
                         returnStdout: true
                     ).trim()
+                    
                     env.BUILD_VERSION = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
-                    env.DOCKER_TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}-${env.BUILD_VERSION}"
+                    env.DOCKER_TAG = getDockerTag()
+                    
+                    echo "🏷️ Docker Tag: ${env.DOCKER_TAG}"
+                    
+                    // Set Spring Profile based on environment
+                    env.SPRING_PROFILES_ACTIVE = env.ENVIRONMENT
+                }
+            }
+        }
+        
+        stage('Checkout & Validation') {
+            steps {
+                checkout scm
+                script {
+                    // Validate environment configuration
+                    sh '''
+                        echo "Validating environment configuration..."
+                        if [ ! -f "environments/${ENVIRONMENT}/values.yaml" ]; then
+                            echo "❌ Environment configuration not found for ${ENVIRONMENT}"
+                            exit 1
+                        fi
+                        echo "✅ Environment configuration validated"
+                    '''
                 }
             }
         }
@@ -58,8 +91,8 @@ pipeline {
                 stage('Maven Build') {
                     steps {
                         sh '''
-                            echo "Building with Maven..."
-                            mvn clean compile -DskipTests
+                            echo "🔨 Building with Maven..."
+                            mvn clean compile -DskipTests -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}
                         '''
                     }
                 }
@@ -68,7 +101,7 @@ pipeline {
                     steps {
                         dir('ai-service') {
                             sh '''
-                                echo "Setting up Python environment..."
+                                echo "🐍 Setting up Python environment..."
                                 python -m venv venv
                                 source venv/bin/activate || . venv/Scripts/activate
                                 pip install -r requirements.txt
@@ -84,8 +117,8 @@ pipeline {
                 stage('Java Tests') {
                     steps {
                         sh '''
-                            echo "Running Java unit tests..."
-                            mvn test -Dtest=*UnitTest
+                            echo "🧪 Running Java unit tests..."
+                            mvn test -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}
                         '''
                     }
                     post {
@@ -116,37 +149,40 @@ pipeline {
         
         stage('Integration Tests') {
             when {
+                not { environment name: 'ENVIRONMENT', value: 'development' }
+            }
+            steps {
+                sh '''
+                    echo "🔗 Starting integration tests..."
+                    docker-compose -f docker-compose.${ENVIRONMENT}.yml up -d
+                    sleep 60
+                    mvn verify -Pintegration-tests -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}
+                '''
+            }
+            post {
+                always {
+                    sh 'docker-compose -f docker-compose.${ENVIRONMENT}.yml down || true'
+                    publishTestResults testResultsPattern: '**/target/failsafe-reports/*.xml'
+                }
+            }
+        }
+        
+        stage('Code Quality & Security') {
+            when {
                 anyOf {
                     branch 'main'
                     branch 'develop'
                     changeRequest()
                 }
             }
-            steps {
-                sh '''
-                    echo "Starting integration tests..."
-                    docker-compose -f docker-compose.test.yml up -d
-                    sleep 30
-                    mvn verify -Pintegration-tests
-                '''
-            }
-            post {
-                always {
-                    sh 'docker-compose -f docker-compose.test.yml down || true'
-                    publishTestResults testResultsPattern: '**/target/failsafe-reports/*.xml'
-                }
-            }
-        }
-        
-        stage('Code Quality') {
             parallel {
                 stage('SonarQube Analysis') {
                     steps {
                         withSonarQubeEnv('SonarQube') {
                             sh '''
                                 mvn sonar:sonar \
-                                  -Dsonar.projectKey=incident-platform \
-                                  -Dsonar.projectName=incident-platform \
+                                  -Dsonar.projectKey=incident-platform-${ENVIRONMENT} \
+                                  -Dsonar.projectName="Incident Platform (${ENVIRONMENT})" \
                                   -Dsonar.token=${SONAR_TOKEN}
                             '''
                         }
@@ -156,7 +192,7 @@ pipeline {
                 stage('Security Scan') {
                     steps {
                         sh '''
-                            echo "Running security scans..."
+                            echo "🔒 Running security scans..."
                             mvn org.owasp:dependency-check-maven:check
                         '''
                     }
@@ -173,6 +209,19 @@ pipeline {
                         }
                     }
                 }
+                
+                stage('Container Scan') {
+                    when {
+                        not { environment name: 'ENVIRONMENT', value: 'development' }
+                    }
+                    steps {
+                        sh '''
+                            echo "🐳 Running container security scan..."
+                            # Add container security scanning tool like Trivy
+                            trivy fs --security-checks vuln,config . || true
+                        '''
+                    }
+                }
             }
         }
         
@@ -181,6 +230,7 @@ pipeline {
                 anyOf {
                     branch 'main'
                     branch 'develop'
+                    branch 'development'
                 }
             }
             parallel {
@@ -196,10 +246,11 @@ pipeline {
                             
                             services.each { service ->
                                 sh """
-                                    echo "Building ${service}..."
+                                    echo "🔨 Building ${service}..."
                                     cd ${service}
                                     mvn spring-boot:build-image \
-                                      -Dspring-boot.build-image.imageName=${DOCKER_REGISTRY}/${DOCKER_REPO}/${service}:${DOCKER_TAG}
+                                      -Dspring-boot.build-image.imageName=${DOCKER_REGISTRY}/${DOCKER_REPO}/${service}:${DOCKER_TAG} \
+                                      -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}
                                     docker push ${DOCKER_REGISTRY}/${DOCKER_REPO}/${service}:${DOCKER_TAG}
                                 """
                             }
@@ -211,37 +262,33 @@ pipeline {
                     steps {
                         dir('ai-service') {
                             sh """
-                                echo "Building AI service..."
-                                docker build -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/ai-service:${DOCKER_TAG} .
+                                echo "🤖 Building AI service..."
+                                docker build -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/ai-service:${DOCKER_TAG} \
+                                  --build-arg ENVIRONMENT=${ENVIRONMENT} .
                                 docker push ${DOCKER_REGISTRY}/${DOCKER_REPO}/ai-service:${DOCKER_TAG}
                             """
                         }
                     }
                 }
             }
+            post {
+                success {
+                    echo "✅ Docker images built and pushed successfully"
+                }
+                failure {
+                    echo "❌ Failed to build or push Docker images"
+                }
+            }
         }
         
-        stage('Update Manifests') {
+        stage('Deploy to Development') {
             when {
-                branch 'main'
+                branch 'development'
             }
             steps {
                 script {
-                    withCredentials([gitUsernamePassword(credentialsId: 'git-credentials')]) {
-                        sh """
-                            git clone ${GIT_CONFIG_REPO} config-repo
-                            cd config-repo
-                            
-                            # Update image tags in Helm values or Kustomize
-                            find . -name "values.yaml" -o -name "kustomization.yaml" | xargs sed -i 's|tag: .*|tag: ${DOCKER_TAG}|g'
-                            
-                            git config user.email "jenkins@incident-platform.com"
-                            git config user.name "Jenkins CI"
-                            git add .
-                            git commit -m "Update image tags to ${DOCKER_TAG} [skip ci]" || true
-                            git push origin main
-                        """
-                    }
+                    echo "🚀 Deploying to Development environment..."
+                    deployToEnvironment('development', false)
                 }
             }
         }
@@ -252,11 +299,35 @@ pipeline {
             }
             steps {
                 script {
-                    sh """
-                        echo "Deploying to staging environment..."
-                        argocd app sync incident-platform-staging --server ${ARGOCD_SERVER}
-                        argocd app wait incident-platform-staging --server ${ARGOCD_SERVER}
-                    """
+                    echo "🚀 Deploying to Staging environment..."
+                    
+                    // Update configuration repository
+                    updateConfigRepository('staging')
+                    
+                    // Deploy via ArgoCD
+                    deployToEnvironment('staging', false)
+                    
+                    // Run staging-specific tests
+                    runStagingTests()
+                }
+            }
+        }
+        
+        stage('Production Approval') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    echo "⏳ Waiting for production deployment approval..."
+                    timeout(time: 24, unit: 'HOURS') {
+                        def approvers = ['production-team@company.com', 'devops-lead@company.com']
+                        input message: 'Deploy to Production?', 
+                              ok: 'Deploy to Production',
+                              submitter: approvers.join(','),
+                              submitterParameter: 'APPROVER'
+                    }
+                    echo "✅ Production deployment approved by: ${env.APPROVER}"
                 }
             }
         }
@@ -267,20 +338,24 @@ pipeline {
             }
             steps {
                 script {
-                    timeout(time: 5, unit: 'MINUTES') {
-                        input message: 'Deploy to Production?', ok: 'Deploy'
-                    }
+                    echo "🚀 Deploying to Production environment..."
                     
-                    sh """
-                        echo "Deploying to production environment..."
-                        argocd app sync incident-platform-prod --server ${ARGOCD_SERVER}
-                        argocd app wait incident-platform-prod --server ${ARGOCD_SERVER}
-                    """
+                    // Backup current production state
+                    backupProduction()
+                    
+                    // Update configuration repository
+                    updateConfigRepository('production')
+                    
+                    // Deploy via ArgoCD with manual sync
+                    deployToEnvironment('production', true)
+                    
+                    // Run production smoke tests
+                    runProductionSmokeTests()
                 }
             }
         }
         
-        stage('Smoke Tests') {
+        stage('Post-Deployment Tests') {
             when {
                 anyOf {
                     branch 'main'
@@ -288,38 +363,211 @@ pipeline {
                 }
             }
             steps {
-                sh '''
-                    echo "Running smoke tests..."
-                    sleep 60  # Wait for services to be ready
-                    
-                    # Test gateway health
-                    curl -f http://gateway-service:8080/actuator/health || exit 1
-                    
-                    # Test key services
-                    curl -f http://auth-service:8081/actuator/health || exit 1
-                    curl -f http://dashboard-service:8088/actuator/health || exit 1
-                '''
+                script {
+                    echo "🧪 Running post-deployment tests..."
+                    runPostDeploymentTests()
+                }
             }
         }
     }
     
     post {
         always {
+            script {
+                publishTestResults testResultsPattern: '**/target/*-reports/*.xml'
+                archiveArtifacts artifacts: 'target/*.jar, ai-service/dist/*', allowEmptyArchive: true
+            }
             cleanWs()
         }
         success {
-            slackSend(
-                channel: '#deployments',
-                color: 'good',
-                message: "✅ Pipeline succeeded for ${env.JOB_NAME} - ${env.BUILD_NUMBER} (${env.GIT_COMMIT_SHORT})"
-            )
+            script {
+                def message = "✅ Pipeline succeeded for ${env.ENVIRONMENT}"
+                message += "\n📋 Job: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+                message += "\n🏷️ Version: ${env.DOCKER_TAG}"
+                message += "\n👤 Triggered by: ${env.BUILD_USER ?: 'System'}"
+                
+                slackSend(
+                    channel: env.SLACK_CHANNEL,
+                    color: 'good',
+                    message: message
+                )
+            }
         }
         failure {
+            script {
+                def message = "❌ Pipeline failed for ${env.ENVIRONMENT}"
+                message += "\n📋 Job: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+                message += "\n🔗 Build URL: ${env.BUILD_URL}"
+                
+                slackSend(
+                    channel: env.SLACK_CHANNEL,
+                    color: 'danger',
+                    message: message
+                )
+            }
+        }
+        unstable {
             slackSend(
-                channel: '#deployments',
-                color: 'danger',
-                message: "❌ Pipeline failed for ${env.JOB_NAME} - ${env.BUILD_NUMBER} (${env.GIT_COMMIT_SHORT})"
+                channel: env.SLACK_CHANNEL,
+                color: 'warning',
+                message: "⚠️ Pipeline unstable for ${env.ENVIRONMENT} - ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
             )
         }
     }
+}
+
+// Helper Functions
+def getEnvironment() {
+    switch(env.BRANCH_NAME) {
+        case 'main':
+            return 'production'
+        case 'develop':
+            return 'staging'
+        case 'development':
+            return 'development'
+        default:
+            return 'development'
+    }
+}
+
+def getTargetNamespace() {
+    switch(getEnvironment()) {
+        case 'production':
+            return 'incident-platform-prod'
+        case 'staging':
+            return 'incident-platform-staging'
+        case 'development':
+            return 'incident-platform-dev'
+        default:
+            return 'incident-platform-dev'
+    }
+}
+
+def getDockerTag() {
+    def environment = getEnvironment()
+    switch(environment) {
+        case 'production':
+            return "main-${env.BUILD_VERSION}"
+        case 'staging':
+            return "develop-${env.BUILD_VERSION}"
+        case 'development':
+            return "dev-${env.BUILD_VERSION}"
+        default:
+            return "${env.BRANCH_NAME}-${env.BUILD_VERSION}"
+    }
+}
+
+def getArgocdServer() {
+    switch(getEnvironment()) {
+        case 'production':
+            return 'argocd-prod.your-domain.com'
+        case 'staging':
+            return 'argocd-staging.your-domain.com'
+        case 'development':
+            return 'localhost:8080'
+        default:
+            return 'localhost:8080'
+    }
+}
+
+def getSlackChannel() {
+    switch(getEnvironment()) {
+        case 'production':
+            return '#production-alerts'
+        case 'staging':
+            return '#staging-deployments'
+        case 'development':
+            return '#dev-builds'
+        default:
+            return '#dev-builds'
+    }
+}
+
+def updateConfigRepository(environment) {
+    withCredentials([gitUsernamePassword(credentialsId: 'git-credentials')]) {
+        sh """
+            echo "📝 Updating configuration repository for ${environment}..."
+            git clone ${GIT_CONFIG_REPO} config-repo
+            cd config-repo
+            
+            # Update image tags in Helm values
+            sed -i 's|imageTag: .*|imageTag: "${env.DOCKER_TAG}"|g' environments/${environment}/values.yaml
+            
+            git config user.email "jenkins@incident-platform.com"
+            git config user.name "Jenkins CI"
+            git add .
+            git commit -m "Update ${environment} image tags to ${env.DOCKER_TAG} [skip ci]" || true
+            git push origin main
+        """
+    }
+}
+
+def deployToEnvironment(environment, requiresApproval) {
+    def appName = "incident-platform-${environment == 'production' ? 'prod' : environment}"
+    
+    if (requiresApproval) {
+        sh """
+            echo "🎯 Syncing ArgoCD application: ${appName}"
+            argocd app sync ${appName} --server ${env.ARGOCD_SERVER} --auth-token ${env.ARGOCD_CREDENTIALS} --grpc-web
+            argocd app wait ${appName} --server ${env.ARGOCD_SERVER} --auth-token ${env.ARGOCD_CREDENTIALS} --timeout 600
+        """
+    } else {
+        sh """
+            echo "🎯 Auto-syncing ArgoCD application: ${appName}"
+            argocd app sync ${appName} --server ${env.ARGOCD_SERVER} --auth-token ${env.ARGOCD_CREDENTIALS} --grpc-web
+            argocd app wait ${appName} --server ${env.ARGOCD_SERVER} --auth-token ${env.ARGOCD_CREDENTIALS} --timeout 300
+        """
+    }
+}
+
+def backupProduction() {
+    sh '''
+        echo "💾 Creating production backup..."
+        kubectl create backup production-backup-$(date +%Y%m%d-%H%M%S) \
+          --namespace incident-platform-prod \
+          --include-resources deployments,services,configmaps,secrets || true
+    '''
+}
+
+def runStagingTests() {
+    sh '''
+        echo "🧪 Running staging-specific tests..."
+        sleep 120  # Wait for services to be ready
+        
+        # Test all service health endpoints
+        for service in gateway auth log-collector anomaly-detector alert-manager notification auto-responder incident-tracker dashboard; do
+            echo "Testing ${service}-service health..."
+            curl -f http://${service}-service.incident-platform-staging:8080/actuator/health || exit 1
+        done
+        
+        # Run staging end-to-end tests
+        mvn test -Pstaging-e2e-tests
+    '''
+}
+
+def runProductionSmokeTests() {
+    sh '''
+        echo "🧪 Running production smoke tests..."
+        sleep 180  # Wait for services to be ready
+        
+        # Critical service health checks
+        curl -f https://incident-platform.your-domain.com/actuator/health || exit 1
+        curl -f https://incident-platform.your-domain.com/api/auth/health || exit 1
+        
+        # Performance tests
+        mvn test -Pperformance-tests -Dtest.environment=production
+    '''
+}
+
+def runPostDeploymentTests() {
+    def environment = getEnvironment()
+    sh """
+        echo "🧪 Running post-deployment tests for ${environment}..."
+        
+        # Wait for services to be ready
+        sleep 60
+        
+        # Run environment-specific tests
+        mvn test -P${environment}-post-deployment-tests
+    """
 } 

@@ -1,9 +1,58 @@
+# Common configuration for all environments
 server:
   port: 8081
 
 spring:
   application:
     name: auth-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:development}
+  
+  # Common JPA configuration
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: ${FORMAT_SQL:true}
+        show_sql: ${SHOW_SQL:false}
+    show-sql: ${SHOW_SQL:false}
+  
+  cloud:
+    config:
+      enabled: false
+
+# Common Eureka configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+# Common JWT configuration
+jwt:
+  secret: ${JWT_SECRET:mySecretKey12345678901234567890}
+  expiration: ${JWT_EXPIRATION:86400000}  # 24 hours
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days
+
+# Common management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: ${HEALTH_SHOW_DETAILS:when_authorized}
+
+---
+# Development environment
+spring:
+  config:
+    activate:
+      on-profile: development
   datasource:
     url: jdbc:postgresql://localhost:5432/incident_auth
     username: ${DB_USERNAME:postgres}
@@ -14,31 +63,20 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         show_sql: true
     show-sql: true
-  cloud:
-    config:
-      enabled: false  # Can be enabled later for centralized config
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
 
 jwt:
-  secret: ${JWT_SECRET:mySecretKey12345678901234567890}
-  expiration: 86400000  # 24 hours
-  refresh-expiration: 604800000  # 7 days
+  secret: mySecretKey12345678901234567890
+  expiration: 86400000
 
 management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
   endpoint:
     health:
       show-details: always
@@ -48,4 +86,127 @@ logging:
     com.incident.auth_service: DEBUG
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE 
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+---
+# Staging environment
+spring:
+  config:
+    activate:
+      on-profile: staging
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgresql-staging}:${DB_PORT:5432}/incident_auth
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+    show-sql: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 3600000  # 1 hour for staging
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    com.incident.auth_service: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    root: INFO
+
+---
+# Production environment
+spring:
+  config:
+    activate:
+      on-profile: production
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgresql-prod}:${DB_PORT:5432}/incident_auth
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+    show-sql: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/
+    registry-fetch-interval-seconds: 10
+    heartbeat-executor-thread-pool-size: 2
+    cache-refresh-executor-thread-pool-size: 2
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 1800000  # 30 minutes for production
+  refresh-expiration: 604800000  # 7 days
+
+management:
+  endpoint:
+    health:
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+# Production security settings
+security:
+  bcrypt:
+    rounds: ${BCRYPT_ROUNDS:12}
+  session:
+    timeout: ${SESSION_TIMEOUT:1800}  # 30 minutes
+  rate-limit:
+    enabled: true
+    max-attempts: 5
+    window-seconds: 300
+
+logging:
+  level:
+    com.incident.auth_service: WARN
+    org.springframework.security: ERROR
+    org.hibernate.SQL: ERROR
+    root: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: /var/log/auth-service/application.log 

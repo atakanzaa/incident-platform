@@ -374,13 +374,11 @@ pipeline {
     
     post {
         always {
-            node {
-                junit '**/target/surefire-reports/*.xml'
-                junit 'ai-service/test-results.xml'
-                junit '**/target/failsafe-reports/*.xml'
-                archiveArtifacts artifacts: 'target/*.jar, ai-service/dist/*', allowEmptyArchive: true
-                cleanWs()
-            }
+            junit '**/target/surefire-reports/*.xml'
+            junit 'ai-service/test-results.xml'
+            junit '**/target/failsafe-reports/*.xml'
+            archiveArtifacts artifacts: 'target/*.jar, ai-service/dist/*', allowEmptyArchive: true
+            cleanWs()
         }
         success {
             script {

@@ -404,3 +404,5 @@ kubectl exec -it deployment/rabbitmq -- rabbitmq-diagnostics status
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+#   T e s t   c h a n g e   f o r   p i p e l i n e  
+ 

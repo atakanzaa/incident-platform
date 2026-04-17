@@ -1,139 +1,178 @@
-# Incident Platform - Multi-Environment Microservices
+# Incident Platform
 
-A comprehensive incident management platform built with Spring Boot microservices, supporting **Development**, **Staging**, and **Production** environments with full CI/CD integration.
+An AI-driven incident detection and response platform built on Spring Boot microservices and a Python ML service. The system ingests logs, detects anomalies, correlates alerts, executes automated responses, and tracks incidents through resolution across development, staging, and production environments.
 
-## 🏗️ Architecture Overview
+---
 
-The platform consists of 11 microservices deployed across three distinct environments:
+## Table of Contents
 
-### Core Services
-- **Gateway Service** - API Gateway with environment-specific routing
-- **Discovery Server** - Service registry (Eureka)
-- **Config Server** - Centralized configuration management
-- **Auth Service** - Authentication and authorization
-- **Log Collector** - Log aggregation and processing
-- **Anomaly Detector** - ML-based anomaly detection
-- **Alert Manager** - Alert processing and routing
-- **Notification Service** - Multi-channel notifications
-- **Auto Responder** - Automated incident response
-- **Incident Tracker** - Incident lifecycle management
-- **Dashboard Service** - Real-time monitoring dashboard
-- **AI Service** - Machine learning and analytics
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Environments](#environments)
+- [Configuration](#configuration)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [Development Workflow](#development-workflow)
+- [Observability](#observability)
+- [Security](#security)
+- [Operations](#operations)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
 
-## 🌍 Environment Strategy
+---
 
-### Development Environment
-- **Purpose**: Local development and feature testing
-- **Branch**: `development`
-- **Infrastructure**: Docker Compose
-- **Database**: Local PostgreSQL/MongoDB instances
-- **Monitoring**: Basic Prometheus setup
-- **Security**: Minimal security for ease of development
-- **Auto-deployment**: Yes, on every commit
+## Overview
 
-### Staging Environment  
-- **Purpose**: Integration testing and pre-production validation
-- **Branch**: `develop`
-- **Infrastructure**: Kubernetes cluster
-- **Database**: Shared staging databases
-- **Monitoring**: Full monitoring stack
-- **Security**: Production-like security
-- **Auto-deployment**: Yes, after successful tests
+The Incident Platform provides end-to-end incident lifecycle management: ingestion, detection, correlation, notification, response, and post-mortem tracking. It is designed for horizontal scalability on Kubernetes and for rapid iteration on a local Docker Compose stack.
 
-### Production Environment
-- **Purpose**: Live production workloads
-- **Branch**: `main`
-- **Infrastructure**: High-availability Kubernetes
-- **Database**: Replicated, backed-up production databases
-- **Monitoring**: Full observability with alerting
-- **Security**: Maximum security and compliance
-- **Auto-deployment**: Manual approval required
+Key capabilities:
 
-## 🚀 Quick Start
+- Centralized log collection and streaming via Kafka
+- ML-based anomaly detection with a dedicated Python service
+- Multi-channel alerting and notification routing
+- Policy-driven automated remediation
+- Incident tracking with audit trail
+- Real-time dashboards and SLA monitoring
 
-### Prerequisites
-- Docker & Docker Compose
-- Java 21
-- Maven 3.9+
-- Python 3.8+ (for AI service)
-- kubectl (for Kubernetes environments)
-- Helm 3.12+
+## Architecture
 
-### Development Environment
+The platform is composed of 12 cooperating services orchestrated through a service registry, a centralized configuration server, and an API gateway.
 
-1. **Clone the repository**
+### Platform Services
+
+| Service | Responsibility |
+| --- | --- |
+| `config-server` | Centralized externalized configuration (Spring Cloud Config) |
+| `discovery-server` | Service registry and discovery (Eureka) |
+| `gateway-service` | API gateway, routing, authentication filters |
+| `auth-service` | Authentication, authorization, JWT issuance |
+
+### Domain Services
+
+| Service | Responsibility |
+| --- | --- |
+| `log-collector-service` | Log ingestion and normalization |
+| `anomaly-detector-service` | Streaming anomaly detection over normalized events |
+| `alert-manager-service` | Alert deduplication, correlation, and routing |
+| `notification-service` | Multi-channel delivery (email, webhook, chat) |
+| `auto-responder-service` | Policy-based automated remediation |
+| `incident-tracker` | Incident lifecycle and audit trail |
+| `dashboard-service` | Operational dashboards and metrics APIs |
+| `ai-service` | Python ML service for detection and analytics |
+
+### Data and Messaging
+
+- **PostgreSQL** — transactional data (auth, incidents, configuration)
+- **MongoDB** — document storage for logs and enriched events
+- **Redis** — caching, rate limiting, ephemeral state
+- **Kafka** — event streaming backbone
+- **RabbitMQ** — command and notification messaging
+
+## Technology Stack
+
+| Layer | Technology |
+| --- | --- |
+| Language (JVM) | Java 21 |
+| Language (ML) | Python 3.8+ |
+| Frameworks | Spring Boot 3.5, Spring Cloud 2025.0 |
+| Build | Maven 3.9+ |
+| Messaging | Apache Kafka 3.8, RabbitMQ 3.x |
+| Storage | PostgreSQL 15, MongoDB 7, Redis 7 |
+| Container | Docker, Docker Compose |
+| Orchestration | Kubernetes, Helm 3.12+ |
+| GitOps | Argo CD |
+| CI/CD | Jenkins |
+| Observability | Prometheus, Grafana, Jaeger, ELK |
+
+## Prerequisites
+
+- Docker and Docker Compose
+- JDK 21
+- Maven 3.9 or newer
+- Python 3.8 or newer (for the AI service)
+- `kubectl` and Helm 3.12+ (for Kubernetes deployments)
+
+## Quick Start
+
+### Local Development
+
 ```bash
 git clone https://github.com/atakanzaa/incident-platform.git
 cd incident-platform
-```
 
-2. **Start development environment**
-```bash
-# Build and start all services
 docker-compose -f docker-compose.development.yml up -d
-
-# Check service health
 docker-compose -f docker-compose.development.yml ps
 ```
 
-3. **Access services**
-- Gateway: http://localhost:8080
-- Dashboard: http://localhost:8088  
-- Prometheus: http://localhost:9090
-- RabbitMQ Management: http://localhost:15672 (admin/admin123)
+Default local endpoints:
 
-### Staging Environment
+| Component | URL | Credentials |
+| --- | --- | --- |
+| API Gateway | http://localhost:8080 | — |
+| Dashboard | http://localhost:8088 | — |
+| Prometheus | http://localhost:9090 | — |
+| RabbitMQ Management | http://localhost:15672 | `admin` / `admin123` |
 
-1. **Deploy to Kubernetes**
+### Staging Deployment
+
 ```bash
-# Apply staging configuration
 kubectl apply -f argocd/applications/incident-platform-staging.yaml
-
-# Monitor deployment
 kubectl get pods -n incident-platform-staging
 ```
 
-2. **Access staging services**
-- Gateway: https://incident-platform-staging.your-domain.com
-- Dashboard: https://dashboard-staging.your-domain.com
-- Grafana: https://grafana-staging.your-domain.com
+### Production Deployment
 
-### Production Environment
+Production is deployed through the CI/CD pipeline with manual approval. Emergency deployments can be applied directly:
 
-1. **Deploy via CI/CD pipeline** (Recommended)
 ```bash
-# Push to main branch triggers production pipeline
-git checkout main
-git merge develop
-git push origin main
-```
-
-2. **Manual deployment** (Emergency use)
-```bash
-# Apply production configuration (requires approval)
 kubectl apply -f argocd/applications/incident-platform-production.yaml
 ```
 
-## 📋 Environment Configuration
+## Environments
+
+| Environment | Branch | Infrastructure | Deployment | Approval |
+| --- | --- | --- | --- | --- |
+| Development | `development` | Docker Compose | Automatic on commit | None |
+| Staging | `develop` | Kubernetes | Automatic after tests pass | None |
+| Production | `main` | Highly available Kubernetes | Pipeline-driven | Required |
+
+Each environment provides progressively stricter guarantees around security, availability, observability, and data durability.
+
+### Resource Allocation
+
+| Environment | CPU Request | Memory Request | Replicas |
+| --- | --- | --- | --- |
+| Development | 100m | 256Mi | 1 |
+| Staging | 250m | 512Mi | 1–2 |
+| Production | 500m | 1Gi | 2–10 |
+
+### Data Tier
+
+| Environment | PostgreSQL | MongoDB | Redis |
+| --- | --- | --- | --- |
+| Development | Single instance, ephemeral | Single instance, ephemeral | Single instance, ephemeral |
+| Staging | Persistent single instance | Replica set (3 nodes) | Primary / replica |
+| Production | Primary with read replicas | Sharded cluster with replica sets | Clustered with failover |
+
+## Configuration
+
+All services consume configuration from the Config Server and the active Spring profile.
 
 ### Spring Profiles
 
-Each service supports three Spring profiles:
-
 ```yaml
-# Development
-spring.profiles.active: development
-
-# Staging  
-spring.profiles.active: staging
-
-# Production
-spring.profiles.active: production
+spring.profiles.active: development   # local
+spring.profiles.active: staging       # staging
+spring.profiles.active: production    # production
 ```
 
-### Environment Variables by Environment
+### Environment Variables
 
-#### Development
+Development:
+
 ```bash
 SPRING_PROFILES_ACTIVE=development
 DB_HOST=localhost
@@ -143,7 +182,8 @@ REDIS_HOST=localhost
 LOG_LEVEL=DEBUG
 ```
 
-#### Staging
+Staging:
+
 ```bash
 SPRING_PROFILES_ACTIVE=staging
 DB_HOST=postgresql-staging
@@ -153,7 +193,8 @@ REDIS_HOST=redis-staging
 LOG_LEVEL=INFO
 ```
 
-#### Production
+Production:
+
 ```bash
 SPRING_PROFILES_ACTIVE=production
 DB_HOST=${DB_HOST}
@@ -163,244 +204,178 @@ KAFKA_SASL_CONFIG=${KAFKA_SASL_CONFIG}
 LOG_LEVEL=WARN
 ```
 
-## 🔄 CI/CD Pipeline
+Secrets in staging and production are sourced from the cluster secret store and never committed to the repository.
 
-### Pipeline Stages
+## CI/CD Pipeline
 
-1. **Initialization** - Environment detection and setup
-2. **Checkout & Validation** - Code checkout and config validation
-3. **Build & Test** - Maven build and Python environment setup
-4. **Unit Tests** - Java and Python unit tests with coverage
-5. **Integration Tests** - Environment-specific integration tests
-6. **Code Quality & Security** - SonarQube, OWASP, container scanning
-7. **Build Docker Images** - Multi-architecture image builds
-8. **Environment Deployment** - Branch-based deployment strategy
-9. **Post-Deployment Tests** - Health checks and smoke tests
+The Jenkins pipeline progresses through the following stages:
+
+1. Environment detection and workspace initialization
+2. Checkout and configuration validation
+3. Maven build and Python environment setup
+4. Unit tests (Java and Python) with coverage
+5. Environment-specific integration tests
+6. Static analysis, dependency scanning, and container image scanning
+7. Multi-architecture Docker image builds
+8. Branch-based deployment to the target environment
+9. Post-deployment health checks and smoke tests
 
 ### Branch Strategy
 
 ```mermaid
 graph LR
-    A[development] -->|Auto Deploy| B[Development Env]
-    C[develop] -->|Auto Deploy| D[Staging Env]
-    E[main] -->|Manual Approval| F[Production Env]
-    
+    A[development] -->|Auto Deploy| B[Development]
+    C[develop] -->|Auto Deploy| D[Staging]
+    E[main] -->|Manual Approval| F[Production]
+
     A -->|PR| C
     C -->|PR + Approval| E
 ```
 
-### Deployment Triggers
+## Development Workflow
 
-| Branch | Environment | Trigger | Approval |
-|--------|-------------|---------|----------|
-| `development` | Development | Auto | None |
-| `develop` | Staging | Auto | None |
-| `main` | Production | Auto | Required |
+### Feature Development
 
-## 🛠️ Development Workflow
-
-### 1. Feature Development
 ```bash
-# Create feature branch from development
 git checkout development
 git checkout -b feature/your-feature-name
 
-# Make changes and test locally
 docker-compose -f docker-compose.development.yml up -d
 
-# Commit and push
 git add .
-git commit -m "feat: add new feature"
+git commit -m "feat: add your feature"
 git push origin feature/your-feature-name
-
-# Create PR to development branch
 ```
 
-### 2. Integration Testing
+Open a pull request targeting `development`.
+
+### Promotion to Staging
+
 ```bash
-# Merge to develop for staging deployment
 git checkout develop
 git merge feature/your-feature-name
 git push origin develop
 
-# Monitor staging deployment
 kubectl logs -f deployment/gateway-service -n incident-platform-staging
 ```
 
-### 3. Production Release
+### Production Release
+
 ```bash
-# Create release PR from develop to main
 git checkout main
 git merge develop
 git push origin main
-
-# Approve production deployment in Jenkins
-# Monitor production deployment
 ```
 
-## 📊 Monitoring & Observability
+Approve the production deployment in Jenkins and monitor rollout.
 
-### Development
-- **Logs**: Docker Compose logs
-- **Metrics**: Basic Prometheus
-- **Health Checks**: Actuator endpoints
-
-### Staging
-- **Logs**: Centralized logging with ELK stack
-- **Metrics**: Prometheus + Grafana
-- **Tracing**: Jaeger distributed tracing
-- **Alerts**: Basic alerting rules
-
-### Production
-- **Logs**: Centralized logging with retention
-- **Metrics**: HA Prometheus with long-term storage
-- **Tracing**: Full distributed tracing
-- **Alerts**: Comprehensive alerting with PagerDuty
-- **Backup**: Automated database backups
-- **Monitoring**: 24/7 monitoring with SLA tracking
-
-## 🔒 Security Configuration
-
-### Development
-- Minimal security for development ease
-- No TLS requirements
-- Debug logging enabled
-- Open CORS policies
-
-### Staging
-- Production-like security settings
-- TLS encryption
-- Auth token validation
-- Restricted CORS policies
-- Security scanning in CI/CD
-
-### Production
-- Maximum security hardening
-- Mutual TLS (mTLS)
-- Encrypted secrets management
-- Network policies
-- Pod security policies
-- Regular security audits
-- Compliance monitoring
-
-## 📦 Service Configuration
-
-### Resource Allocation
-
-| Environment | CPU Request | Memory Request | Replicas |
-|-------------|-------------|---------------|----------|
-| Development | 100m | 256Mi | 1 |
-| Staging | 250m | 512Mi | 1-2 |
-| Production | 500m | 1Gi | 2-10 |
-
-### Database Configuration
-
-#### Development
-- **PostgreSQL**: Single instance, no persistence
-- **MongoDB**: Single instance, no persistence
-- **Redis**: Single instance, no persistence
-
-#### Staging
-- **PostgreSQL**: Single instance with persistence
-- **MongoDB**: Replica set (3 nodes)
-- **Redis**: Master-slave setup
-
-#### Production
-- **PostgreSQL**: Master-slave with read replicas
-- **MongoDB**: Sharded cluster with replica sets
-- **Redis**: Clustered setup with failover
-
-## 🐳 Docker Configuration
-
-### Environment-Specific Compose Files
-
-```bash
-# Development
-docker-compose -f docker-compose.development.yml up -d
-
-# Staging (for local staging testing)
-docker-compose -f docker-compose.staging.yml up -d
-
-# Production (for local production testing)
-docker-compose -f docker-compose.production.yml up -d
-```
-
-## 🎯 Health Checks & Testing
-
-### Health Endpoints
-```bash
-# Development
-curl http://localhost:8080/actuator/health
-
-# Staging
-curl https://incident-platform-staging.your-domain.com/actuator/health
-
-# Production
-curl https://incident-platform.your-domain.com/actuator/health
-```
-
-### Running Tests by Environment
+### Testing
 
 ```bash
 # Unit tests
 mvn test -Dspring.profiles.active=development
 
 # Integration tests
-mvn test -Pintegration-tests -Dspring.profiles.active=staging
+mvn verify -Pintegration-tests -Dspring.profiles.active=staging
 
 # Performance tests
 mvn test -Pperformance-tests -Dspring.profiles.active=production
 ```
 
-## 🚨 Troubleshooting
+### Health Checks
 
-### Common Issues
-
-1. **Service Discovery Issues**
 ```bash
-# Check Eureka dashboard
+curl http://localhost:8080/actuator/health
+curl https://incident-platform-staging.your-domain.com/actuator/health
+curl https://incident-platform.your-domain.com/actuator/health
+```
+
+## Observability
+
+| Capability | Development | Staging | Production |
+| --- | --- | --- | --- |
+| Logs | Docker Compose | Centralized (ELK) | Centralized with retention |
+| Metrics | Prometheus (basic) | Prometheus + Grafana | HA Prometheus with long-term storage |
+| Tracing | — | Jaeger | Jaeger (full coverage) |
+| Alerts | — | Baseline rules | Full alerting with PagerDuty |
+| Backups | — | Periodic | Automated with validation |
+| SLA tracking | — | — | 24/7 with on-call rotation |
+
+## Security
+
+| Concern | Development | Staging | Production |
+| --- | --- | --- | --- |
+| Transport encryption | Disabled | TLS | Mutual TLS |
+| Authentication | Lenient | Enforced | Enforced with short-lived tokens |
+| CORS | Open | Restricted | Restricted allowlist |
+| Secrets | Local env files | Cluster secret store | Cluster secret store + rotation |
+| Network policies | — | Namespace-level | Namespace and pod-level |
+| Scanning | — | CI pipeline | CI pipeline + runtime |
+| Auditing | — | Basic | Full audit log and compliance review |
+
+## Operations
+
+### Docker Compose Files
+
+```bash
+docker-compose -f docker-compose.development.yml up -d
+docker-compose -f docker-compose.staging.yml up -d
+docker-compose -f docker-compose.production.yml up -d
+```
+
+### Service Logs
+
+```bash
+# Docker Compose
+docker-compose -f docker-compose.development.yml logs -f <service>
+
+# Kubernetes
+kubectl logs -f deployment/<service> -n incident-platform-staging
+```
+
+### Argo CD
+
+```bash
+argocd app get incident-platform-staging
+argocd app sync incident-platform-staging
+```
+
+## Troubleshooting
+
+**Service discovery**
+
+```bash
 curl http://discovery-server:8761/eureka/apps
 ```
 
-2. **Database Connection Issues**
+**Database connectivity**
+
 ```bash
-# Check database connectivity
 kubectl exec -it deployment/auth-service -- nc -zv postgresql 5432
 ```
 
-3. **Message Queue Issues**
+**Message broker status**
+
 ```bash
-# Check RabbitMQ status
 kubectl exec -it deployment/rabbitmq -- rabbitmq-diagnostics status
 ```
 
-### Environment-Specific Troubleshooting
+**Port conflicts (local)**
 
-#### Development
-- Check Docker Compose logs: `docker-compose logs -f service-name`
-- Verify port conflicts: `netstat -tulpn | grep :8080`
+```bash
+netstat -tulpn | grep :8080
+```
 
-#### Staging/Production
-- Check pod status: `kubectl get pods -n incident-platform-staging`
-- View pod logs: `kubectl logs -f deployment/service-name`
-- Check ArgoCD sync status: `argocd app get incident-platform-staging`
+## Contributing
 
-## 📚 Additional Resources
+1. Fork the repository.
+2. Create a feature branch from `development`.
+3. Commit your changes using [Conventional Commits](https://www.conventionalcommits.org/).
+4. Push the branch and open a pull request into `development`.
+5. Ensure the CI pipeline passes before requesting review.
 
-- [Service Documentation](./docs/services/)
-- [API Documentation](./docs/api/)
-- [Deployment Guide](./docs/deployment/)
-- [Monitoring Guide](./docs/monitoring/)
-- [Security Guide](./docs/security/)
+For local setup details, see [DEVELOPMENT.md](./DEVELOPMENT.md). For anomaly detection test scenarios, see [ANOMALY_TESTING_GUIDE.md](./ANOMALY_TESTING_GUIDE.md).
 
-## 🤝 Contributing
+## License
 
-1. Fork the repository
-2. Create your feature branch from `development`
-3. Commit your changes
-4. Push to your branch
-5. Create a Pull Request to `development`
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Released under the MIT License. See [LICENSE](LICENSE) for details.
